@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "grpc-exchange/gen/common;commonv1";
+
+
+import "common/decimal.proto";
+
+// Money представляет денежную сумму с валютой
+message Money {
+  // Сумма (используем Decimal для точности)
+  Decimal amount = 1;
+
+  // Код валюты (ISO 4217)
+  // Например: "USD", "EUR", "RUB"
+  string currency_code = 2;
+}

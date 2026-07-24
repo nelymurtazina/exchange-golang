@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package user.v1;
+
+option go_package = "grpc-exchange/gen/user;userv1";
+
+service UserService {
+  rpc GetUser(GetUserRequest) returns (User);
+  rpc CheckUserRoles(CheckUserRolesRequest) returns (CheckUserRolesResponse);
+
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+}
+
+message User {
+  string user_id = 1;
+  string username = 2;
+  string email = 3;
+  string role = 4;
+  bool active = 5;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message CheckUserRolesRequest {
+  string user_id = 1;
+  string required_role = 2;
+}
+
+message CheckUserRolesResponse {
+  bool has_access = 1;
+  string user_role = 2;
+}
+
+
+message RegisterRequest {
+  string username = 1;
+  string email = 2;
+  string password = 3;
+}
+
+message RegisterResponse {
+  string user_id = 1;
+  string message = 2;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string user_id = 1;
+  string token = 2;
+  string message = 3;
+}
+
+message LogoutRequest {
+  string user_id = 1;
+}
+
+message LogoutResponse {
+  string message = 1;
+}
+
+
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  string user_id = 1;
+  bool valid = 2;
+}

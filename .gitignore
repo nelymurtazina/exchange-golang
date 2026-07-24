@@ -1,0 +1,16 @@
+# Environment variables
+.env
+
+# Go
+*.exe
+*.test
+*.out
+go.sum
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

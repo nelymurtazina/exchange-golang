@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package order.v1;
+
+option go_package = "grpc-exchange/gen/order;orderv1";
+
+import "common/money.proto";
+import "common/decimal.proto";
+import "google/protobuf/timestamp.proto";
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetOrderStatus(GetOrderStatusRequest) returns (GetOrderStatusResponse);
+}
+
+enum OrderSide {
+  ORDER_SIDE_UNSPECIFIED = 0;
+  ORDER_SIDE_BUY = 1;   // Покупка
+  ORDER_SIDE_SELL = 2;  // Продажа
+}
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;          // В обработке
+  ORDER_STATUS_FILLED = 2;           // Исполнена полностью
+  ORDER_STATUS_PARTIALLY_FILLED = 3; // Частично исполнена
+  ORDER_STATUS_CANCELLED = 4;        // Отменена
+  ORDER_STATUS_REJECTED = 5;         // Отклонена
+}
+
+
+message Order {
+  string order_id = 1;
+  string user_id = 2;
+  string market_id = 3;
+  OrderSide OrderSide = 4; // order_side -покупаем, продаем 
+  
+  common.v1.Money price = 5;    
+  common.v1.Decimal quantity = 6; //Кол-во decemel 
+  common.v1.Decimal filled_quantity = 7; // Сколько уже исполнено
+  OrderStatus status = 8; 
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message CreateOrderRequest {
+  string key = 1; //ключ индепотентности
+  string user_id = 2; 
+  string market_id = 3;
+  OrderSide side = 4;
+  common.v1.Money price = 5;
+  common.v1.Decimal quantity = 6; 
+}
+
+message CreateOrderResponse{
+  string order_id = 1;
+  OrderStatus status = 2;
+}
+
+message GetOrderStatusRequest {
+  string order_id = 1;
+  string user_id = 2;
+}
+
+message GetOrderStatusResponse{
+  Order order = 1; 
+}
+
+//при создании заказа учитьывать статус пользователя
+//убрать статус пользователя при заказе 

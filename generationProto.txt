@@ -1,0 +1,169 @@
+# 1. Инициализация Go модуля
+# Создает файл go.mod с именем проекта
+go mod init grpc-user-api
+
+# 2. Установка основных зависимостей
+# Скачивает библиотеку gRPC для Go (Чтобы код мог использовать gRPC)
+go get google.golang.org/grpc
+
+# 3. Установка библиотеки для работы с protobuf
+go get google.golang.org/protobuf
+
+# 4. Установка плагинов для генерации кода
+# Эти плагины нужны, чтобы protoc умел генерировать Go-код (Чтобы protoc генерировал Go-код для данных, сервисов)
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+#5. ГЕНЕРАЦИЯ КОДА ИЗ PROTO-ФАЙЛА
+# Генерируем код
+protoc --go_out=. --go_opt=paths=source_relative \
+    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+    proto/user.proto
+
+#В папке proto/ появятся два новых файла:
+  -user.pb.go — содержит Go-структуры для всех ваших сообщений
+  -user_grpc.pb.go — содержит интерфейсы для сервера и клиента
+
+#Флаг	Что делает
+--go_out=.	Генерирует код для данных (структуры) в текущую папку
+--go_opt=paths=source_relative	Создает файлы рядом с .proto файлом
+--go-grpc_out=.	Генерирует код для gRPC (сервер и клиент) в текущую папку
+--go-grpc_opt=paths=source_relative	Создает файлы рядом с .proto файлом
+--proto/user.proto	Путь к файлу
+
+
+#Готовый 
+protoc -I. -I"D:\nely\programm\proto\protoc-35.1-win64\include" 
+--go_out=. 
+--go_opt=paths=source_relative 
+--go-grpc_out=. 
+--go-grpc_opt=paths=source_relative proto/user.proto
+
+protoc -I. -I"D:\nely\programm\proto\protoc-35.1-win64\include" --go_out=. --go_opt=paths=source_relative --go-grpc_out=. 
+--go-grpc_opt=paths=source_relative proto/user.proto
+
+
+protoc -Iproto -I"D:\nely\programm\proto\protoc-35.1-win64\include" --go_out=generation/order --go_opt=paths=source_relative --go-grpc_out=generation/order --go-grpc_opt=paths=source_relative proto/order.proto
+protoc -Iproto -I"D:\nely\programm\proto\protoc-35.1-win64\include" --go_out=generation/spot --go_opt=paths=source_relative --go-grpc_out=generation/spot --go-grpc_opt=paths=source_relative proto/spot_instrument.proto
+
+#ФАЙЛЫ:
+- user.pb.go — это структура данных (Здесь описано, как выглядят пользователи, запросы и ответы)
+- user_grpc.pb.go — это "интерфейсы" (как общаться)(Здесь описано, как клиент может общаться с сервером)
+
+
+
+
+
+
+# Все значения метрики
+grpc_server_handled_total
+
+# Фильтр по метке
+grpc_server_handled_total{grpc_method="CreateOrder"}
+
+# Сумма по всем методам
+sum(grpc_server_handled_total)
+
+# Группировка по методу
+sum by (grpc_method) (grpc_server_handled_total)
+
+# Скорость (запросов в секунду) за последние 5 минут
+rate(grpc_server_handled_total[5m])
+
+# Процент ошибок
+sum(rate(grpc_server_handled_total{grpc_code!="OK"}[5m])) 
+/ 
+sum(rate(grpc_server_handled_total[5m])) 
+* 100
+
+# 95-й процентиль времени ответа
+histogram_quantile(0.95, 
+    sum(rate(grpc_server_handling_seconds_bucket[5m])) by (le)
+)
+
+
+
+
+
+
+global:
+  scrape_interval: 15s     # Как часто собирать метрики
+  evaluation_interval: 15s # Как часто выполнять правила
+
+scrape_configs:
+  - job_name: 'grpc-exchange'    # Имя работы
+    static_configs:
+      - targets: ['host.docker.internal:8080']  # Адрес твоего сервера
+
+
+
+//добавить документаци
+
+
+
+
+// снала с клиента разобраться 
+
+
+
+
+
+scrape_interval: 5s — Prometheus будет забирать метрики каждые 5 секунд .
+
+host.docker.internal — это специальное имя, которое работает внутри контейнера Docker и указывает на ваш компьютер. Это нужно, чтобы контейнер мог "видеть" ваши сервисы, запущенные на хосте
+
+
+
+
+мапперы нужны для преобразования доменных сущностей в proto структуры 
+
+
+
+
+
+
+
+1. Клиент отправляет CreateOrderRequest (PROTO)
+   ↓
+2. gRPC сервер принимает запрос
+   ↓
+3. [МАППЕР] FromProtoCreateOrder()
+   Proto → Domain
+   ↓
+4. Бизнес-логика работает с domain.Order
+   ↓
+5. Репозиторий сохраняет domain.Order в БД
+   ↓
+6. БД сохраняет данные
+   ↓
+7. Репозиторий возвращает domain.Order (или ошибку)
+   ↓
+8. Бизнес-логика создает ответ
+   ↓
+9. [МАППЕР] ToProtoCreateOrderResponse()
+   Domain → Proto
+   ↓
+10. gRPC сервер отправляет CreateOrderResponse (PROTO)
+   ↓
+11. Клиент получает ответ
+
+
+
+
+
+
+
+1. Клиент отправляет GetOrderStatusRequest (PROTO)
+   ↓
+2. gRPC сервер принимает запрос
+   ↓
+3. Бизнес-логика вызывает репозиторий
+   ↓
+4. Репозиторий получает domain.Order из БД
+   ↓
+5. [МАППЕР] ToProtoOrder()
+   Domain → Proto
+   ↓
+6. gRPC сервер отправляет GetOrderStatusResponse (PROTO)
+   ↓
+7. Клиент получает ответ

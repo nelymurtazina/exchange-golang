@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package spot.v1;
+
+option go_package = "grpc-exchange/gen/spot;spotv1";
+
+import "common/money.proto";
+import "common/decimal.proto";
+
+import "google/protobuf/timestamp.proto";
+
+service SpotInstrumentService {
+  rpc ListMarket(ListMarketsRequest) returns (ListMarketsResponse); 
+  rpc GetMarket(GetMarketRequest) returns (GetMarketResponse); 
+}
+
+message Market{
+  string market_id = 1;
+  string name = 2; 
+  string base_asset = 3;            // Базовая валюта (например, "BTC")
+  string quote_asset = 4;           // Котируемая валюта (например, "USD")
+  bool enabled = 5;                 // Активен ли рынок
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp deleted_at = 7; // null если не удален
+  
+  common.v1.Money min_price = 8;    // Минимальная цена
+  common.v1.Money max_price = 9;    // Максимальная цена
+  common.v1.Decimal min_quantity = 10; // Минимальное количество
+  common.v1.Decimal max_quantity = 11; // Максимальное количество
+}
+
+message ListMarketsRequest {
+  string user_roles = 1; 
+  string market_id = 2;
+  // Количество элементов на одну страницу. на сервере задают дефолтное значение (например, 20), если клиент передал 0.
+  int32 page_size = 3; 
+  // Токен для получения следующей страницы.
+  // Для первой страницы передается пустая строка.
+  string page_token = 4;
+}
+
+//Список рынков.
+message ListMarketsResponse {
+  repeated Market markets = 1; //возвращаем множество рынков, а не один.
+  // //pageSide. добавить пагинация (курсорная)
+  // int32 page_size = 2;
+  // string page_token = 3;  
+  string next_page_token = 2;
+}
+
+message GetMarketRequest {
+  string market_id = 1;
+}
+
+message GetMarketResponse{
+  Market market = 1;
+}
+
+
+//command enum - роли(статусы) реализовывать их отдельно в order
