@@ -12,8 +12,6 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-require go.uber.org/atomic v1.11.0 // indirect
-
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -25,7 +23,6 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.0 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
-	github.com/redis/go-redis/v9 v9.21.0
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.54.0
 	golang.org/x/net v0.56.0 // indirect

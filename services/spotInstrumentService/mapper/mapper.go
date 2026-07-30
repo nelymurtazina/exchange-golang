@@ -12,10 +12,8 @@ func ToProtoMarket(market *domain.Market) *spotv1.Market {
 		return nil
 	}
 
-	var deletedAt *timestamppb.Timestamp
-	if market.DeletedAt != nil {
-		deletedAt = timestamppb.New(*market.DeletedAt)
-	}
+	var updateAt *timestamppb.Timestamp
+	
 
 	return &spotv1.Market{
 		MarketId:    market.MarketID,
@@ -24,7 +22,7 @@ func ToProtoMarket(market *domain.Market) *spotv1.Market {
 		QuoteAsset:  market.QuoteAsset,
 		Enabled:     market.Enabled,
 		CreatedAt:   timestamppb.New(market.CreatedAt),
-		DeletedAt:   deletedAt,
+		UpdatedAt:   updateAt,
 	}
 }
 

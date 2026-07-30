@@ -23,6 +23,58 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type MarketStatus int32
+
+const (
+	MarketStatus_MARKET_STATUS_UNSPECIFIED MarketStatus = 0
+	MarketStatus_MARKET_STATUS_ACTIVE      MarketStatus = 1
+	MarketStatus_MARKET_STATUS_INACTIVE    MarketStatus = 2
+	MarketStatus_MARKET_STATUS_DELETED     MarketStatus = 3
+)
+
+// Enum value maps for MarketStatus.
+var (
+	MarketStatus_name = map[int32]string{
+		0: "MARKET_STATUS_UNSPECIFIED",
+		1: "MARKET_STATUS_ACTIVE",
+		2: "MARKET_STATUS_INACTIVE",
+		3: "MARKET_STATUS_DELETED",
+	}
+	MarketStatus_value = map[string]int32{
+		"MARKET_STATUS_UNSPECIFIED": 0,
+		"MARKET_STATUS_ACTIVE":      1,
+		"MARKET_STATUS_INACTIVE":    2,
+		"MARKET_STATUS_DELETED":     3,
+	}
+)
+
+func (x MarketStatus) Enum() *MarketStatus {
+	p := new(MarketStatus)
+	*p = x
+	return p
+}
+
+func (x MarketStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MarketStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_spot_spot_instrument_proto_enumTypes[0].Descriptor()
+}
+
+func (MarketStatus) Type() protoreflect.EnumType {
+	return &file_spot_spot_instrument_proto_enumTypes[0]
+}
+
+func (x MarketStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MarketStatus.Descriptor instead.
+func (MarketStatus) EnumDescriptor() ([]byte, []int) {
+	return file_spot_spot_instrument_proto_rawDescGZIP(), []int{0}
+}
+
 type Market struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MarketId      string                 `protobuf:"bytes,1,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
@@ -30,12 +82,13 @@ type Market struct {
 	BaseAsset     string                 `protobuf:"bytes,3,opt,name=base_asset,json=baseAsset,proto3" json:"base_asset,omitempty"`    // Базовая валюта (например, "BTC")
 	QuoteAsset    string                 `protobuf:"bytes,4,opt,name=quote_asset,json=quoteAsset,proto3" json:"quote_asset,omitempty"` // Котируемая валюта (например, "USD")
 	Enabled       bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`                        // Активен ли рынок
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	DeletedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`        // null если не удален
-	MinPrice      *common.Money          `protobuf:"bytes,8,opt,name=min_price,json=minPrice,proto3" json:"min_price,omitempty"`           // Минимальная цена
-	MaxPrice      *common.Money          `protobuf:"bytes,9,opt,name=max_price,json=maxPrice,proto3" json:"max_price,omitempty"`           // Максимальная цена
-	MinQuantity   *common.Decimal        `protobuf:"bytes,10,opt,name=min_quantity,json=minQuantity,proto3" json:"min_quantity,omitempty"` // Минимальное количество
-	MaxQuantity   *common.Decimal        `protobuf:"bytes,11,opt,name=max_quantity,json=maxQuantity,proto3" json:"max_quantity,omitempty"` // Максимальное количество
+	Status        MarketStatus           `protobuf:"varint,6,opt,name=status,proto3,enum=spot.v1.MarketStatus" json:"status,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`        // null если не удален
+	MinPrice      *common.Money          `protobuf:"bytes,9,opt,name=min_price,json=minPrice,proto3" json:"min_price,omitempty"`           // Минимальная цена
+	MaxPrice      *common.Money          `protobuf:"bytes,10,opt,name=max_price,json=maxPrice,proto3" json:"max_price,omitempty"`          // Максимальная цена
+	MinQuantity   *common.Decimal        `protobuf:"bytes,11,opt,name=min_quantity,json=minQuantity,proto3" json:"min_quantity,omitempty"` // Минимальное количество
+	MaxQuantity   *common.Decimal        `protobuf:"bytes,12,opt,name=max_quantity,json=maxQuantity,proto3" json:"max_quantity,omitempty"` // Максимальное количество
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -105,6 +158,13 @@ func (x *Market) GetEnabled() bool {
 	return false
 }
 
+func (x *Market) GetStatus() MarketStatus {
+	if x != nil {
+		return x.Status
+	}
+	return MarketStatus_MARKET_STATUS_UNSPECIFIED
+}
+
 func (x *Market) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
@@ -112,9 +172,9 @@ func (x *Market) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *Market) GetDeletedAt() *timestamppb.Timestamp {
+func (x *Market) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
-		return x.DeletedAt
+		return x.UpdatedAt
 	}
 	return nil
 }
@@ -150,12 +210,13 @@ func (x *Market) GetMaxQuantity() *common.Decimal {
 type ListMarketsRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	UserRoles string                 `protobuf:"bytes,1,opt,name=user_roles,json=userRoles,proto3" json:"user_roles,omitempty"`
-	MarketId  string                 `protobuf:"bytes,2,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
 	// Количество элементов на одну страницу. на сервере задают дефолтное значение (например, 20), если клиент передал 0.
-	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// Токен для получения следующей страницы.
 	// Для первой страницы передается пустая строка.
-	PageToken     string `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// указать с чего начинаем!
+	AfterId       string `protobuf:"bytes,4,opt,name=after_id,json=afterId,proto3" json:"after_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -197,13 +258,6 @@ func (x *ListMarketsRequest) GetUserRoles() string {
 	return ""
 }
 
-func (x *ListMarketsRequest) GetMarketId() string {
-	if x != nil {
-		return x.MarketId
-	}
-	return ""
-}
-
 func (x *ListMarketsRequest) GetPageSize() int32 {
 	if x != nil {
 		return x.PageSize
@@ -218,6 +272,13 @@ func (x *ListMarketsRequest) GetPageToken() string {
 	return ""
 }
 
+func (x *ListMarketsRequest) GetAfterId() string {
+	if x != nil {
+		return x.AfterId
+	}
+	return ""
+}
+
 // Список рынков.
 type ListMarketsResponse struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
@@ -226,6 +287,7 @@ type ListMarketsResponse struct {
 	// int32 page_size = 2;
 	// string page_token = 3;
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	TotalCount    int32  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -272,6 +334,13 @@ func (x *ListMarketsResponse) GetNextPageToken() string {
 		return x.NextPageToken
 	}
 	return ""
+}
+
+func (x *ListMarketsResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
 }
 
 type GetMarketRequest struct {
@@ -366,7 +435,7 @@ var File_spot_spot_instrument_proto protoreflect.FileDescriptor
 
 const file_spot_spot_instrument_proto_rawDesc = "" +
 	"\n" +
-	"\x1aspot/spot_instrument.proto\x12\aspot.v1\x1a\x12common/money.proto\x1a\x14common/decimal.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd5\x03\n" +
+	"\x1aspot/spot_instrument.proto\x12\aspot.v1\x1a\x12common/money.proto\x1a\x14common/decimal.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x84\x04\n" +
 	"\x06Market\x12\x1b\n" +
 	"\tmarket_id\x18\x01 \x01(\tR\bmarketId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
@@ -374,30 +443,38 @@ const file_spot_spot_instrument_proto_rawDesc = "" +
 	"base_asset\x18\x03 \x01(\tR\tbaseAsset\x12\x1f\n" +
 	"\vquote_asset\x18\x04 \x01(\tR\n" +
 	"quoteAsset\x12\x18\n" +
-	"\aenabled\x18\x05 \x01(\bR\aenabled\x129\n" +
+	"\aenabled\x18\x05 \x01(\bR\aenabled\x12-\n" +
+	"\x06status\x18\x06 \x01(\x0e2\x15.spot.v1.MarketStatusR\x06status\x129\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"deleted_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt\x12-\n" +
-	"\tmin_price\x18\b \x01(\v2\x10.common.v1.MoneyR\bminPrice\x12-\n" +
-	"\tmax_price\x18\t \x01(\v2\x10.common.v1.MoneyR\bmaxPrice\x125\n" +
-	"\fmin_quantity\x18\n" +
-	" \x01(\v2\x12.common.v1.DecimalR\vminQuantity\x125\n" +
-	"\fmax_quantity\x18\v \x01(\v2\x12.common.v1.DecimalR\vmaxQuantity\"\x8c\x01\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12-\n" +
+	"\tmin_price\x18\t \x01(\v2\x10.common.v1.MoneyR\bminPrice\x12-\n" +
+	"\tmax_price\x18\n" +
+	" \x01(\v2\x10.common.v1.MoneyR\bmaxPrice\x125\n" +
+	"\fmin_quantity\x18\v \x01(\v2\x12.common.v1.DecimalR\vminQuantity\x125\n" +
+	"\fmax_quantity\x18\f \x01(\v2\x12.common.v1.DecimalR\vmaxQuantity\"\x8a\x01\n" +
 	"\x12ListMarketsRequest\x12\x1d\n" +
 	"\n" +
 	"user_roles\x18\x01 \x01(\tR\tuserRoles\x12\x1b\n" +
-	"\tmarket_id\x18\x02 \x01(\tR\bmarketId\x12\x1b\n" +
-	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x04 \x01(\tR\tpageToken\"h\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\x12\x19\n" +
+	"\bafter_id\x18\x04 \x01(\tR\aafterId\"\x89\x01\n" +
 	"\x13ListMarketsResponse\x12)\n" +
 	"\amarkets\x18\x01 \x03(\v2\x0f.spot.v1.MarketR\amarkets\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"/\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
+	"\vtotal_count\x18\x03 \x01(\x05R\n" +
+	"totalCount\"/\n" +
 	"\x10GetMarketRequest\x12\x1b\n" +
 	"\tmarket_id\x18\x01 \x01(\tR\bmarketId\"<\n" +
 	"\x11GetMarketResponse\x12'\n" +
-	"\x06market\x18\x01 \x01(\v2\x0f.spot.v1.MarketR\x06market2\xa4\x01\n" +
+	"\x06market\x18\x01 \x01(\v2\x0f.spot.v1.MarketR\x06market*~\n" +
+	"\fMarketStatus\x12\x1d\n" +
+	"\x19MARKET_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14MARKET_STATUS_ACTIVE\x10\x01\x12\x1a\n" +
+	"\x16MARKET_STATUS_INACTIVE\x10\x02\x12\x19\n" +
+	"\x15MARKET_STATUS_DELETED\x10\x032\xa4\x01\n" +
 	"\x15SpotInstrumentService\x12G\n" +
 	"\n" +
 	"ListMarket\x12\x1b.spot.v1.ListMarketsRequest\x1a\x1c.spot.v1.ListMarketsResponse\x12B\n" +
@@ -415,35 +492,38 @@ func file_spot_spot_instrument_proto_rawDescGZIP() []byte {
 	return file_spot_spot_instrument_proto_rawDescData
 }
 
+var file_spot_spot_instrument_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_spot_spot_instrument_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_spot_spot_instrument_proto_goTypes = []any{
-	(*Market)(nil),                // 0: spot.v1.Market
-	(*ListMarketsRequest)(nil),    // 1: spot.v1.ListMarketsRequest
-	(*ListMarketsResponse)(nil),   // 2: spot.v1.ListMarketsResponse
-	(*GetMarketRequest)(nil),      // 3: spot.v1.GetMarketRequest
-	(*GetMarketResponse)(nil),     // 4: spot.v1.GetMarketResponse
-	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
-	(*common.Money)(nil),          // 6: common.v1.Money
-	(*common.Decimal)(nil),        // 7: common.v1.Decimal
+	(MarketStatus)(0),             // 0: spot.v1.MarketStatus
+	(*Market)(nil),                // 1: spot.v1.Market
+	(*ListMarketsRequest)(nil),    // 2: spot.v1.ListMarketsRequest
+	(*ListMarketsResponse)(nil),   // 3: spot.v1.ListMarketsResponse
+	(*GetMarketRequest)(nil),      // 4: spot.v1.GetMarketRequest
+	(*GetMarketResponse)(nil),     // 5: spot.v1.GetMarketResponse
+	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(*common.Money)(nil),          // 7: common.v1.Money
+	(*common.Decimal)(nil),        // 8: common.v1.Decimal
 }
 var file_spot_spot_instrument_proto_depIdxs = []int32{
-	5,  // 0: spot.v1.Market.created_at:type_name -> google.protobuf.Timestamp
-	5,  // 1: spot.v1.Market.deleted_at:type_name -> google.protobuf.Timestamp
-	6,  // 2: spot.v1.Market.min_price:type_name -> common.v1.Money
-	6,  // 3: spot.v1.Market.max_price:type_name -> common.v1.Money
-	7,  // 4: spot.v1.Market.min_quantity:type_name -> common.v1.Decimal
-	7,  // 5: spot.v1.Market.max_quantity:type_name -> common.v1.Decimal
-	0,  // 6: spot.v1.ListMarketsResponse.markets:type_name -> spot.v1.Market
-	0,  // 7: spot.v1.GetMarketResponse.market:type_name -> spot.v1.Market
-	1,  // 8: spot.v1.SpotInstrumentService.ListMarket:input_type -> spot.v1.ListMarketsRequest
-	3,  // 9: spot.v1.SpotInstrumentService.GetMarket:input_type -> spot.v1.GetMarketRequest
-	2,  // 10: spot.v1.SpotInstrumentService.ListMarket:output_type -> spot.v1.ListMarketsResponse
-	4,  // 11: spot.v1.SpotInstrumentService.GetMarket:output_type -> spot.v1.GetMarketResponse
-	10, // [10:12] is the sub-list for method output_type
-	8,  // [8:10] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	0,  // 0: spot.v1.Market.status:type_name -> spot.v1.MarketStatus
+	6,  // 1: spot.v1.Market.created_at:type_name -> google.protobuf.Timestamp
+	6,  // 2: spot.v1.Market.updated_at:type_name -> google.protobuf.Timestamp
+	7,  // 3: spot.v1.Market.min_price:type_name -> common.v1.Money
+	7,  // 4: spot.v1.Market.max_price:type_name -> common.v1.Money
+	8,  // 5: spot.v1.Market.min_quantity:type_name -> common.v1.Decimal
+	8,  // 6: spot.v1.Market.max_quantity:type_name -> common.v1.Decimal
+	1,  // 7: spot.v1.ListMarketsResponse.markets:type_name -> spot.v1.Market
+	1,  // 8: spot.v1.GetMarketResponse.market:type_name -> spot.v1.Market
+	2,  // 9: spot.v1.SpotInstrumentService.ListMarket:input_type -> spot.v1.ListMarketsRequest
+	4,  // 10: spot.v1.SpotInstrumentService.GetMarket:input_type -> spot.v1.GetMarketRequest
+	3,  // 11: spot.v1.SpotInstrumentService.ListMarket:output_type -> spot.v1.ListMarketsResponse
+	5,  // 12: spot.v1.SpotInstrumentService.GetMarket:output_type -> spot.v1.GetMarketResponse
+	11, // [11:13] is the sub-list for method output_type
+	9,  // [9:11] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_spot_spot_instrument_proto_init() }
@@ -456,13 +536,14 @@ func file_spot_spot_instrument_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_spot_spot_instrument_proto_rawDesc), len(file_spot_spot_instrument_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_spot_spot_instrument_proto_goTypes,
 		DependencyIndexes: file_spot_spot_instrument_proto_depIdxs,
+		EnumInfos:         file_spot_spot_instrument_proto_enumTypes,
 		MessageInfos:      file_spot_spot_instrument_proto_msgTypes,
 	}.Build()
 	File_spot_spot_instrument_proto = out.File

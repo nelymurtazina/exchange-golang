@@ -132,10 +132,10 @@ func (OrderStatus) EnumDescriptor() ([]byte, []int) {
 
 type Order struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	OrderId        string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	OrderId        string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"` //точный uuid (выполнить прото-валидацию )
 	UserId         string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	MarketId       string                 `protobuf:"bytes,3,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
-	OrderSide      OrderSide              `protobuf:"varint,4,opt,name=OrderSide,proto3,enum=order.v1.OrderSide" json:"OrderSide,omitempty"` // order_side -покупаем, продаем
+	OrderSide      OrderSide              `protobuf:"varint,4,opt,name=order_side,json=orderSide,proto3,enum=order.v1.OrderSide" json:"order_side,omitempty"` // order_side -покупаем, продаем  (шейк-кейс между ордером _)
 	Price          *common.Money          `protobuf:"bytes,5,opt,name=price,proto3" json:"price,omitempty"`
 	Quantity       *common.Decimal        `protobuf:"bytes,6,opt,name=quantity,proto3" json:"quantity,omitempty"`                                   //Кол-во decemel
 	FilledQuantity *common.Decimal        `protobuf:"bytes,7,opt,name=filled_quantity,json=filledQuantity,proto3" json:"filled_quantity,omitempty"` // Сколько уже исполнено
@@ -247,15 +247,15 @@ func (x *Order) GetUpdatedAt() *timestamppb.Timestamp {
 }
 
 type CreateOrderRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"` //ключ индепотентности
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	MarketId      string                 `protobuf:"bytes,3,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
-	Side          OrderSide              `protobuf:"varint,4,opt,name=side,proto3,enum=order.v1.OrderSide" json:"side,omitempty"`
-	Price         *common.Money          `protobuf:"bytes,5,opt,name=price,proto3" json:"price,omitempty"`
-	Quantity      *common.Decimal        `protobuf:"bytes,6,opt,name=quantity,proto3" json:"quantity,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	IdempotencyKey string                 `protobuf:"bytes,1,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"` //ключ индепотентности
+	UserId         string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`                         ////из jwt токена брать
+	MarketId       string                 `protobuf:"bytes,3,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
+	OrderSide      OrderSide              `protobuf:"varint,4,opt,name=order_side,json=orderSide,proto3,enum=order.v1.OrderSide" json:"order_side,omitempty"` //
+	Price          *common.Money          `protobuf:"bytes,5,opt,name=price,proto3" json:"price,omitempty"`
+	Quantity       *common.Decimal        `protobuf:"bytes,6,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateOrderRequest) Reset() {
@@ -288,9 +288,9 @@ func (*CreateOrderRequest) Descriptor() ([]byte, []int) {
 	return file_order_order_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *CreateOrderRequest) GetKey() string {
+func (x *CreateOrderRequest) GetIdempotencyKey() string {
 	if x != nil {
-		return x.Key
+		return x.IdempotencyKey
 	}
 	return ""
 }
@@ -309,9 +309,9 @@ func (x *CreateOrderRequest) GetMarketId() string {
 	return ""
 }
 
-func (x *CreateOrderRequest) GetSide() OrderSide {
+func (x *CreateOrderRequest) GetOrderSide() OrderSide {
 	if x != nil {
-		return x.Side
+		return x.OrderSide
 	}
 	return OrderSide_ORDER_SIDE_UNSPECIFIED
 }
@@ -384,8 +384,7 @@ func (x *CreateOrderResponse) GetStatus() OrderStatus {
 
 type GetOrderStatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	OrderId       string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	OrderId       string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"` // string user_id = 2; //из jwt токена брать добавляться в контект
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -423,13 +422,6 @@ func (*GetOrderStatusRequest) Descriptor() ([]byte, []int) {
 func (x *GetOrderStatusRequest) GetOrderId() string {
 	if x != nil {
 		return x.OrderId
-	}
-	return ""
-}
-
-func (x *GetOrderStatusRequest) GetUserId() string {
-	if x != nil {
-		return x.UserId
 	}
 	return ""
 }
@@ -482,12 +474,13 @@ var File_order_order_proto protoreflect.FileDescriptor
 
 const file_order_order_proto_rawDesc = "" +
 	"\n" +
-	"\x11order/order.proto\x12\border.v1\x1a\x12common/money.proto\x1a\x14common/decimal.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc5\x03\n" +
+	"\x11order/order.proto\x12\border.v1\x1a\x12common/money.proto\x1a\x14common/decimal.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc6\x03\n" +
 	"\x05Order\x12\x19\n" +
 	"\border_id\x18\x01 \x01(\tR\aorderId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1b\n" +
-	"\tmarket_id\x18\x03 \x01(\tR\bmarketId\x121\n" +
-	"\tOrderSide\x18\x04 \x01(\x0e2\x13.order.v1.OrderSideR\tOrderSide\x12&\n" +
+	"\tmarket_id\x18\x03 \x01(\tR\bmarketId\x122\n" +
+	"\n" +
+	"order_side\x18\x04 \x01(\x0e2\x13.order.v1.OrderSideR\torderSide\x12&\n" +
 	"\x05price\x18\x05 \x01(\v2\x10.common.v1.MoneyR\x05price\x12.\n" +
 	"\bquantity\x18\x06 \x01(\v2\x12.common.v1.DecimalR\bquantity\x12;\n" +
 	"\x0ffilled_quantity\x18\a \x01(\v2\x12.common.v1.DecimalR\x0efilledQuantity\x12-\n" +
@@ -496,20 +489,20 @@ const file_order_order_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xdd\x01\n" +
-	"\x12CreateOrderRequest\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x17\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xff\x01\n" +
+	"\x12CreateOrderRequest\x12'\n" +
+	"\x0fidempotency_key\x18\x01 \x01(\tR\x0eidempotencyKey\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1b\n" +
-	"\tmarket_id\x18\x03 \x01(\tR\bmarketId\x12'\n" +
-	"\x04side\x18\x04 \x01(\x0e2\x13.order.v1.OrderSideR\x04side\x12&\n" +
+	"\tmarket_id\x18\x03 \x01(\tR\bmarketId\x122\n" +
+	"\n" +
+	"order_side\x18\x04 \x01(\x0e2\x13.order.v1.OrderSideR\torderSide\x12&\n" +
 	"\x05price\x18\x05 \x01(\v2\x10.common.v1.MoneyR\x05price\x12.\n" +
 	"\bquantity\x18\x06 \x01(\v2\x12.common.v1.DecimalR\bquantity\"_\n" +
 	"\x13CreateOrderResponse\x12\x19\n" +
 	"\border_id\x18\x01 \x01(\tR\aorderId\x12-\n" +
-	"\x06status\x18\x02 \x01(\x0e2\x15.order.v1.OrderStatusR\x06status\"K\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x15.order.v1.OrderStatusR\x06status\"2\n" +
 	"\x15GetOrderStatusRequest\x12\x19\n" +
-	"\border_id\x18\x01 \x01(\tR\aorderId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\"?\n" +
+	"\border_id\x18\x01 \x01(\tR\aorderId\"?\n" +
 	"\x16GetOrderStatusResponse\x12%\n" +
 	"\x05order\x18\x01 \x01(\v2\x0f.order.v1.OrderR\x05order*P\n" +
 	"\tOrderSide\x12\x1a\n" +
@@ -554,14 +547,14 @@ var file_order_order_proto_goTypes = []any{
 	(*timestamppb.Timestamp)(nil),  // 9: google.protobuf.Timestamp
 }
 var file_order_order_proto_depIdxs = []int32{
-	0,  // 0: order.v1.Order.OrderSide:type_name -> order.v1.OrderSide
+	0,  // 0: order.v1.Order.order_side:type_name -> order.v1.OrderSide
 	7,  // 1: order.v1.Order.price:type_name -> common.v1.Money
 	8,  // 2: order.v1.Order.quantity:type_name -> common.v1.Decimal
 	8,  // 3: order.v1.Order.filled_quantity:type_name -> common.v1.Decimal
 	1,  // 4: order.v1.Order.status:type_name -> order.v1.OrderStatus
 	9,  // 5: order.v1.Order.created_at:type_name -> google.protobuf.Timestamp
 	9,  // 6: order.v1.Order.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 7: order.v1.CreateOrderRequest.side:type_name -> order.v1.OrderSide
+	0,  // 7: order.v1.CreateOrderRequest.order_side:type_name -> order.v1.OrderSide
 	7,  // 8: order.v1.CreateOrderRequest.price:type_name -> common.v1.Money
 	8,  // 9: order.v1.CreateOrderRequest.quantity:type_name -> common.v1.Decimal
 	1,  // 10: order.v1.CreateOrderResponse.status:type_name -> order.v1.OrderStatus

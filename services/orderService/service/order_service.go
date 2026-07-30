@@ -76,11 +76,11 @@ func (s *OrderService) GetOrderStatus(
     if req.OrderId == "" {
         return nil, status.Errorf(codes.InvalidArgument, "order_id is required")
     }
-    if req.UserId == "" {
+    if req.OrderId == "" {
         return nil, status.Errorf(codes.InvalidArgument, "user_id is required")
     }
 
-    order, err := s.orderRepo.GetByIDAndUser(ctx, req.OrderId, req.UserId)
+    order, err := s.orderRepo.GetByIDAndUser(ctx, req.OrderId, req.OrderId)
     if err != nil {
         return nil, status.Errorf(codes.Internal, "failed to get order: %v", err)
     }

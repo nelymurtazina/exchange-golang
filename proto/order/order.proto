@@ -30,10 +30,10 @@ enum OrderStatus {
 
 
 message Order {
-  string order_id = 1;
+  string order_id = 1; //точный uuid (выполнить прото-валидацию )
   string user_id = 2;
   string market_id = 3;
-  OrderSide OrderSide = 4; // order_side -покупаем, продаем 
+  OrderSide order_side = 4; // order_side -покупаем, продаем  (шейк-кейс между ордером _)
   
   common.v1.Money price = 5;    
   common.v1.Decimal quantity = 6; //Кол-во decemel 
@@ -44,13 +44,14 @@ message Order {
 }
 
 message CreateOrderRequest {
-  string key = 1; //ключ индепотентности
-  string user_id = 2; 
+  string idempotency_key = 1; //ключ индепотентности
+  string user_id = 2;  ////из jwt токена брать
   string market_id = 3;
-  OrderSide side = 4;
+  OrderSide order_side = 4; //
   common.v1.Money price = 5;
   common.v1.Decimal quantity = 6; 
 }
+//id в теле запроса. 
 
 message CreateOrderResponse{
   string order_id = 1;
@@ -59,7 +60,7 @@ message CreateOrderResponse{
 
 message GetOrderStatusRequest {
   string order_id = 1;
-  string user_id = 2;
+  // string user_id = 2; //из jwt токена брать добавляться в контект 
 }
 
 message GetOrderStatusResponse{
@@ -68,3 +69,9 @@ message GetOrderStatusResponse{
 
 //при создании заказа учитьывать статус пользователя
 //убрать статус пользователя при заказе 
+
+
+
+//роль юзера из jwt токена 
+
+//перегенерацию сделать 

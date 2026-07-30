@@ -24,7 +24,7 @@ func AuthInterceptor(userClient userv1.UserServiceClient) grpc.UnaryServerInterc
             "/user.v1.UserService/Register": true,
             "/user.v1.UserService/Login":    true,
         }
-
+//передаю userd без контекст value
         if skip, ok := skipMethods[info.FullMethod]; ok && skip {
             return handler(ctx, req)
         }
@@ -36,11 +36,11 @@ func AuthInterceptor(userClient userv1.UserServiceClient) grpc.UnaryServerInterc
         }
 
         authHeader := md.Get("authorization")
-        if len(authHeader) == 0 {
+        if len(authHeader) == 0 { //добавить проверку 
             return nil, status.Errorf(codes.Unauthenticated, "authorization token is missing")
         }
 
-        // "Bearer <token>"
+        // "Bearer <token>" - не чуствительный к регистру 
         parts := strings.Split(authHeader[0], " ")
         if len(parts) != 2 || parts[0] != "Bearer" {
             return nil, status.Errorf(codes.Unauthenticated, "invalid authorization header format")
@@ -73,3 +73,12 @@ func GetUserIDFromContext(ctx context.Context) string {
     }
     return ""
 }
+//нет user_id. сделать как x-requst-id
+
+
+//userService упадет - упадет все. Не должна быть зависимость user
+//jwt -stcret передаем через. извлекаем jwt-heder -> передаем контексту 
+
+
+
+//передавать список конкретных методов из shered 

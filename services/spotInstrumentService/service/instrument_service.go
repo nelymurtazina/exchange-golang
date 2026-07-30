@@ -24,19 +24,7 @@ func (s *InstrumentService) ListMarkets(
 	ctx context.Context,
 	req *spotv1.ListMarketsRequest,
 ) (*spotv1.ListMarketsResponse, error) {
-	if req.MarketId != "" {
-		market, err := s.repo.GetActiveByID(ctx, req.MarketId)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to get market: %v", err)
-		}
-		if market == nil {
-			return nil, status.Errorf(codes.NotFound, "market not found or inactive")
-		}
-		return &spotv1.ListMarketsResponse{
-			Markets: []*spotv1.Market{mapper.ToProtoMarket(market)},
-		}, nil
-	}
-
+	
 	markets, err := s.repo.GetAllActive(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get markets: %v", err)

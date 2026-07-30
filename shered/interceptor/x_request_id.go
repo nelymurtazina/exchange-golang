@@ -25,7 +25,7 @@ func XRequestIDInterceptor(
     }
 
     if requestID == "" {
-        requestID = uuid.New().String()
+        requestID = uuid.NewString()
     }
 
     ctx = context.WithValue(ctx, RequestIDKey, requestID)
@@ -33,7 +33,7 @@ func XRequestIDInterceptor(
 }
 
 func GetRequestID(ctx context.Context) string {
-    if id, ok := ctx.Value(RequestIDKey).(string); ok {
+    if id, ok := ctx.Value(RequestIDKey).(string); ok { 
         return id
     }
     return ""

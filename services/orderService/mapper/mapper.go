@@ -38,7 +38,7 @@ func FromProtoCreateOrder(req *orderv1.CreateOrderRequest) *domain.Order {
         OrderID:  uuid.New().String(),
         UserID:   req.UserId,
         MarketID: req.MarketId,
-        Side:     ConvertProtoSide(req.Side),
+        Side:     ConvertProtoSide(req.OrderSide),
         Price:    *req.Price,    
         Quantity: *req.Quantity, 
         Status:   domain.OrderStatusPending,
