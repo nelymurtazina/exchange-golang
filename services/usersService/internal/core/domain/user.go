@@ -2,9 +2,12 @@ package domain
 
 import (
 	"errors"
+	"net/mail"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type User struct {
@@ -19,14 +22,14 @@ type User struct {
 }
 
 var (
-	ErrInvalidUserID      = errors.New("user id must be valid UUID")
-	ErrInvalidUsername    = errors.New("username must be 3-20 characters, only letters and digits")
-	ErrInvalidEmail       = errors.New("email must be valid email address")
 	ErrUserNotFound      = errors.New("user not found")
-	ErrInvalidPassword   = errors.New("invalid password")
 	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrInvalidPassword   = errors.New("invalid password")
+	ErrInvalidEmail      = errors.New("invalid email")
+	ErrInvalidUsername   = errors.New("invalid username")
 	ErrUserDisabled      = errors.New("user is disabled")
 	ErrInvalidToken      = errors.New("invalid token")
+	ErrInvalidUserID     = errors.New("invalid user_id")
 )
 
 func NewUser(id, name, email, password string) (*User, error){
@@ -55,6 +58,9 @@ func NewUser(id, name, email, password string) (*User, error){
 }
 
 func ValidateUserName(name string) error {
+	if name == "" {
+		return ErrInvalidUsername
+	}
 	if len(name) < 2 || len(name) > 30{
 		return ErrInvalidUsername
 	}
@@ -82,6 +88,13 @@ func ValidateEmail(email string) error {
 	if !strings.Contains(parts[1], "."){
 		return ErrInvalidEmail
 	}
+	
+	//net.mail, uuid проверки добавить.
+	_, err := mail.ParseAddress(email)
+	if err != nil {
+		return ErrInvalidEmail
+	}
+
 	return nil
 }
 
@@ -90,7 +103,21 @@ func ValidateUserID(id string) error{
 	if id == ""{
 		return ErrInvalidUserID
 	}
+	_, err := uuid.Parse(id)
+	if err != nil {
+		return ErrInvalidUserID
+	}
 	return nil
+}
+
+func NewUserID() string {
+	return uuid.New().String()
 }
 //здесь еще будут методы для изменения состояния с валидацией при update
 
+
+
+//реализация кеширования, не будет методов jwtMeneger. ТОлько работа с jwt. Добавить input Output(для решистрации). Более сложна логика для email.Обработка ошибок без nil. а реальные ошибки, если уникальная ошибка, то конвертирую в domain и прокидываю ее(чтобы сервер отличил ошибку)
+//refreshToken изменить , добавить в порты. 
+//сервис логина, даже если пользователь не найдет, нужно защитить систему от атак. + добавить миграцию бд. (без миграции не валиден). Закрывать после грейсшатдаун. есть готовые паттерны для грейсоушшатдаун, должен найти после, а не перед. 
+//добавить бд. 

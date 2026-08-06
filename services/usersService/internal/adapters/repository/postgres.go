@@ -3,16 +3,21 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"grpc-exchange/services/usersService/config"
 	"grpc-exchange/services/usersService/internal/core/domain"
 	"grpc-exchange/services/usersService/internal/core/ports"
-	
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type UserRepository struct {
 	db *sql.DB
+}
+
+func NewUserRepository(db *sql.DB) ports.UserRepository {
+	return &UserRepository{db: db}
 }
 
 // CreateUser implements [ports.UserRepository].
@@ -25,7 +30,10 @@ func (u *UserRepository) CreateUser(ctx context.Context, user *domain.User) erro
 		user.UserID, user.Username,user.Email, user.Password,
 		user.Role, user.Active, user.CreatedAt, user.UpdatedAt,
 )
-	return err
+	if err != nil {
+		return domain.ErrUserAlreadyExists // Если уникальный email нарушен
+	}
+	return nil
 }
 
 // Delete implements [ports.UserRepository].
@@ -43,6 +51,8 @@ func (u *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 	`
 	row := u.db.QueryRowContext(ctx, query, email)
 	return u.scanUser(row)
+
+	//игнорируем ошибку, добавить обработку ошибку 
 }
 
 func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
@@ -60,7 +70,11 @@ func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
+	//антипатер, мне обработать каждую ошибку 
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound 
+		}
 		return nil, err
 	}
 	return &user, nil
@@ -88,11 +102,6 @@ func (u *UserRepository) Update(ctx context.Context, user *domain.User) error {
 	)
 	return err
 }
-
-func NewUserRepository(db *sql.DB) ports.UserRepository {
-	return &UserRepository{db: db}
-}
-
 
 
 

@@ -31,6 +31,10 @@ func main() {
 	}
 	defer logger.Sync()
 
+	if err := cfg.Validate(); err != nil {
+		logger.Fatal("invalid config", zap.Error(err))
+	}
+
 	db, err := repository.NewConnection(cfg.Database)
 	if err != nil {
 		logger.Fatal("failed to connect to database", zap.Error(err))
@@ -40,8 +44,8 @@ func main() {
 	repo := repository.NewUserRepository(db)
 
 	jwtManager := auth.NewJWTManager(cfg.JWT.Secret, cfg.JWT.ExpiresHours)
-
-	userService := service.NewUserService(repo, jwtManager)
+	passwordManager := auth.NewPasswordManager()
+	userService := services.NewUserService(repo, jwtManager, passwordManager)
 	
 	grpcHandler := hendler.NewUserHandler(userService)
 
@@ -57,15 +61,15 @@ func main() {
 	pb.RegisterUserServiceServer(grpcServer, grpcHandler)
 	reflection.Register(grpcServer)
 
-	
-	//  GRACEFUL SHUTDOWN
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
 	lis, err := net.Listen("tcp", cfg.Server.Port)
 	if err != nil {
 		logger.Fatal("failed to listen", zap.Error(err))
 	}
+
+	//Graceful Shutdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
 
 	go func() {
 		logger.Info("UserService started", 

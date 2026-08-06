@@ -2,8 +2,10 @@ syntax = "proto3";
 
 package user.v1;
 import "google/protobuf/timestamp.proto";
+// import "validate/validate.proto";
 
 option go_package = "grpc-exchange/gen/user;userv1";
+//весь user_id должен быть uuid 
 
 service UserService {
   rpc GetUser(GetUserRequest) returns (User);
@@ -17,7 +19,7 @@ service UserService {
 }
 
 message User {
-  string user_id = 1;
+  string user_id = 1;  //uuid [(validate.rules).string.uuid = true]; -  не работает
   string username = 2;
   string email = 3;
   string role = 4;

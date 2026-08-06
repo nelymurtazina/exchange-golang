@@ -5,8 +5,22 @@ import (
 	"grpc-exchange/services/usersService/internal/core/domain"
 )
 
-type UserService  interface {
-	Register(ctx context.Context, username, email, password string) (*domain.User, string, string, error)
+// DTO для регистрации
+type RegisterInput struct {
+	Username string
+	Email    string
+	Password string
+}
+
+// DTO для ответа регистрации
+type RegisterOutput struct {
+	User         *domain.User
+	AccessToken  string
+	RefreshToken string
+}
+
+type UserService interface {
+	Register(ctx context.Context, input RegisterInput) (*RegisterOutput, error)
 	Login(ctx context.Context, email, password string) (string, string, error)
 	GetUser(ctx context.Context, userID string) (*domain.User, error)
 	ValidateToken(ctx context.Context, token string) (string, string, error)

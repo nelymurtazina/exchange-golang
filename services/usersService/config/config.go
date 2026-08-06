@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"log"
 	"os"
 	"strconv"
@@ -82,4 +83,24 @@ func getEnvAsInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// проверяет обязательные поля
+func (c Config) Validate() error {
+    if c.Database.Host == "" {
+        return errors.New("DB_HOST is required")
+    }
+    if c.Database.Port == 0 {
+        return errors.New("DB_PORT is required")
+    }
+    if c.Database.DBName == "" {
+        return errors.New("DB_NAME is required")
+    }
+    if c.JWT.Secret == "" {
+        return errors.New("JWT_SECRET is required")
+    }
+    if c.JWT.ExpiresHours <= 0 {
+        return errors.New("JWT_EXPIRES_HOURS must be > 0")
+    }
+    return nil
 }

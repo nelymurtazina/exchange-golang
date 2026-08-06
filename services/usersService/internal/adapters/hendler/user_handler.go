@@ -23,22 +23,26 @@ func NewUserHandler(service ports.UserService) *UserHandler{
 }
 
 func (h *UserHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	user, accessToken, refreshToken, err := h.service.Register(ctx,req.Username,req.Email,req.Password)
+	output, err := h.service.Register(ctx, ports.RegisterInput{
+		Username: req.Username,
+		Email:    req.Email,
+		Password: req.Password,
+	})
 	if err != nil {
 		switch err {
+		case domain.ErrInvalidUsername, domain.ErrInvalidEmail:
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		case domain.ErrUserAlreadyExists:
-			return nil, status.Error(codes.AlreadyExists, "user already exists")
-		case domain.ErrInvalidEmail:
-			return nil, status.Error(codes.InvalidArgument, "invalid email")
+			return nil, status.Error(codes.AlreadyExists, err.Error())
 		default:
 			return nil, status.Error(codes.Internal, "internal error")
 		}
 	}
 
 	return &pb.RegisterResponse{
-		UserId:       user.UserID,
-		Token:        accessToken,
-		RefreshToken: refreshToken,
+		UserId:       output.User.UserID,
+		Token:        output.AccessToken,
+		RefreshToken: output.RefreshToken,
 		Message:      "User registered successfully",
 	}, nil
 }
@@ -48,7 +52,6 @@ func (h *UserHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 	if err != nil {
 		switch err {
 		case domain.ErrUserNotFound, domain.ErrInvalidPassword:
-			// ОДИНАКОВАЯ ОШИБКА ДЛЯ БЕЗОПАСНОСТИ
 			return nil, status.Error(codes.Unauthenticated, "invalid credentials")
 		case domain.ErrUserDisabled:
 			return nil, status.Error(codes.PermissionDenied, "user disabled")
@@ -64,14 +67,18 @@ func (h *UserHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 	}, nil
 }
 
-// GetUser — gRPC бизнес-логика
+// gRPC бизнес-логика
 func (h *UserHandler) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.User, error) {
 	user, err := h.service.GetUser(ctx, req.UserId)
 	if err != nil {
-		if err == domain.ErrUserNotFound {
+		switch err {
+		case domain.ErrUserNotFound:
 			return nil, status.Error(codes.NotFound, "user not found")
+		case domain.ErrInvalidUserID:
+			return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		default:
+			return nil, status.Error(codes.Internal, "internal error")
 		}
-		return nil, status.Error(codes.Internal, "internal error")
 	}
 
 	return &pb.User{
@@ -99,7 +106,12 @@ func (h *UserHandler) ValidateToken(ctx context.Context, req *pb.ValidateTokenRe
 func (h *UserHandler) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
 	newAccessToken, newRefreshToken, err := h.service.RefreshToken(ctx, req.RefreshToken)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
+		switch err {
+		case domain.ErrInvalidToken:
+			return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
+		default:
+			return nil, status.Error(codes.Internal, "internal error")
+		}
 	}
 
 	return &pb.RefreshTokenResponse{
