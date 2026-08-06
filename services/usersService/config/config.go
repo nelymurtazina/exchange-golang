@@ -14,6 +14,7 @@ type Config struct {
 	Database DatabaseConfig
 	JWT      JWTConfig
 	Server   ServerConfig
+	Migration MigrationConfig
 }
 
 type DatabaseConfig struct {
@@ -37,6 +38,10 @@ type ServerConfig struct {
 	Port         string
 	// MetricsPort  string
 }
+type MigrationConfig struct {
+    Enabled bool
+    Path    string
+}
 
 
 func LoadConfig() Config {
@@ -44,6 +49,7 @@ func LoadConfig() Config {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found, using default values")
 	}
+	
 
 	return Config{
 		Database: DatabaseConfig{
@@ -64,8 +70,13 @@ func LoadConfig() Config {
 		Server: ServerConfig{
 			Port:        getEnv("USER_SERVICE_PORT", ":50053"),
 		},
+		Migration: MigrationConfig{
+    		Enabled: getEnvAsBool("MIGRATION_ENABLED", true),
+    		Path:    getEnv("MIGRATION_PATH", "./migrations"),
+		},
 	}
 }
+
 
 // getEnv — получает переменную окружения или возвращает значение по умолчанию
 func getEnv(key, defaultValue string) string {
@@ -82,7 +93,23 @@ func getEnvAsInt(key string, defaultValue int) int {
 			return intValue
 		}
 	}
+	
 	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return defaultValue
+	}
+
+	boolValue, err := strconv.ParseBool(value)
+	if err != nil {
+		log.Printf("WARNING: invalid bool for %s: %q, using default %v", key, value, defaultValue)
+		return defaultValue
+	}
+
+	return boolValue
 }
 
 // проверяет обязательные поля

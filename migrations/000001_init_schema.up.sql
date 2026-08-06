@@ -1,0 +1,38 @@
+CREATE TABLE IF NOT EXISTS users (
+    user_id UUID PRIMARY KEY,
+    username VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'user',
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS markets (
+    market_id VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    base_asset VARCHAR(50) NOT NULL,
+    quote_asset VARCHAR(50) NOT NULL,
+    enabled BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE NULL
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+    order_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    market_id VARCHAR(255) NOT NULL,
+    side VARCHAR(50) NOT NULL CHECK (side IN ('BUY', 'SELL')),
+    price JSONB NOT NULL,
+    quantity JSONB NOT NULL,
+    filled_quantity JSONB NOT NULL DEFAULT '{"units": 0, "nanos": 0}'::jsonb,
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'FILLED', 'PARTIALLY_FILLED', 'CANCELLED', 'REJECTED')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Индексы
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_market_id ON orders(market_id);

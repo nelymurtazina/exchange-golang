@@ -60,7 +60,7 @@ func (s *userService) Register(ctx context.Context, input ports.RegisterInput) (
 	}
 
 	user := &domain.User{
-		UserID:    domain.NewUserID(), // ← UUID!
+		UserID:    domain.NewUserID(), // UUID!
 		Username:  input.Username,
 		Email:     input.Email,
 		Password:  hashedPassword,

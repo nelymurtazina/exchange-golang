@@ -30,6 +30,7 @@ var (
 	ErrUserDisabled      = errors.New("user is disabled")
 	ErrInvalidToken      = errors.New("invalid token")
 	ErrInvalidUserID     = errors.New("invalid user_id")
+	ErrInvalidCredentials   = errors.New("invalid credentials")
 )
 
 func NewUser(id, name, email, password string) (*User, error){

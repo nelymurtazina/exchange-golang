@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"grpc-exchange/services/usersService/internal/core/service"
 	"grpc-exchange/shered/interceptor"
 
+	"github.com/golang-migrate/migrate/v4"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -40,6 +42,33 @@ func main() {
 		logger.Fatal("failed to connect to database", zap.Error(err))
 	}
 	defer db.Close()
+
+	if cfg.Migration.Enabled {
+		logger.Info("Running migrations...")
+
+		dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+			cfg.Database.User,
+			cfg.Database.Password,
+			cfg.Database.Host,
+			cfg.Database.Port,
+			cfg.Database.DBName,
+			cfg.Database.SSLMode,
+		)
+
+		m, err := migrate.New(
+			"file://"+cfg.Migration.Path,
+			dsn,
+		)
+		if err != nil {
+			logger.Fatal("failed to create migrate instance", zap.Error(err))
+		}
+
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			logger.Fatal("failed to apply migrations", zap.Error(err))
+		}
+
+		logger.Info("Migrations applied successfully")
+	}
 
 	repo := repository.NewUserRepository(db)
 
