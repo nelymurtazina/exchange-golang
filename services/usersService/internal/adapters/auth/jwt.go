@@ -79,6 +79,8 @@ func (m *JWTManager) ValidateRefreshToken(tokenString string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	//не проверяет алгоритм подписи, а просто возвращает секрет. !!!ИСПРАВИТЬ
+	//нужно проверять разрещение, СТрогая проверка как в валидатетокен.  
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		isRefresh, ok := claims["refresh"].(bool)

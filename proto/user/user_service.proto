@@ -2,10 +2,8 @@ syntax = "proto3";
 
 package user.v1;
 import "google/protobuf/timestamp.proto";
-// import "validate/validate.proto";
 
 option go_package = "grpc-exchange/gen/user;userv1";
-//весь user_id должен быть uuid 
 
 service UserService {
   rpc GetUser(GetUserRequest) returns (User);
@@ -19,7 +17,7 @@ service UserService {
 }
 
 message User {
-  string user_id = 1;  //uuid [(validate.rules).string.uuid = true]; -  не работает
+  string user_id = 1; 
   string username = 2;
   string email = 3;
   string role = 4;
@@ -29,7 +27,7 @@ message User {
 }
 
 message GetUserRequest {
-  string user_id = 1;
+  string user_id = 1; 
 }
 
 
@@ -59,12 +57,12 @@ message LoginResponse {
 }
 
 message LogoutRequest {
-  string user_id = 1;
+  string user_id = 1; // удалить, работаем по рефреш токену 
   string refresh_token = 2; 
 }
 
 message LogoutResponse {
-  string message = 1;
+  string message = 1; //
 }
 
 message RefreshTokenRequest {
@@ -74,7 +72,7 @@ message RefreshTokenRequest {
 message RefreshTokenResponse {
   string token = 1;
   string refresh_token = 2;
-  string message = 3;
+  string message = 3; // статусы в коде. Удаляем везде message, стутусы принимаем в коде!
 }
 
 message ValidateTokenRequest {
@@ -83,8 +81,13 @@ message ValidateTokenRequest {
 
 message ValidateTokenResponse {
   string user_id = 1;
-  bool valid = 2; //через statusCode передать (либо доп)
+  bool valid = 2; //через statusCode передать (либо доп) (убрать!) - должен вернуть ошибку, а не успешный ответ. Удлаяем поэтому 
   string role = 3; 
 }
 
 //сделать протовалидацию (page(всех протофайлов))
+
+//не передавать в теле
+
+//grps сообщение (message не передаем в теле успешного запроса, )
+//респнс удлалить стринг месседжи 

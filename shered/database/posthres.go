@@ -40,6 +40,8 @@ func NewPostgresConnection(config Config) (*sql.DB, error) {
     //должно быть конфигурируемо в (.env)
     db.SetMaxIdleConns(5)      // Максимум простаивающих соединений(все в (.env))
     db.SetConnMaxLifetime(5 * time.Minute) // Время жизни соединения (все в (.env))
+    //ДОЛЖна передавать + логгер не использую
+    //исправить, брать из конфига 
     
     if err := db.Ping(); err != nil {
         return nil, fmt.Errorf("failed to ping database: %w", err)

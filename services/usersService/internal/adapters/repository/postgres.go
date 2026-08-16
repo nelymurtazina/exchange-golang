@@ -32,6 +32,7 @@ func (u *UserRepository) CreateUser(ctx context.Context, user *domain.User) erro
 )
 	if err != nil {
 		return domain.ErrUserAlreadyExists // Если уникальный email нарушен
+		//а если обрыв сети? ломает логику и вводит в заблуждение. Проверять код ошибки. 23550 КОД ОШИБКИ ПОЧИТАТЬ 
 	}
 	return nil
 }
@@ -39,6 +40,7 @@ func (u *UserRepository) CreateUser(ctx context.Context, user *domain.User) erro
 // Delete implements [ports.UserRepository].
 func (u *UserRepository) Delete(ctx context.Context, id string) error {
 	query := `DELETE FROM users WHERE user_id = $1`
+	// по делиту таймстемп строго по этому удалять suft Deleted (без жесткого удаления)
 	_, err := u.db.ExecContext(ctx, query, id)
 	return err
 }
@@ -68,7 +70,8 @@ func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
 		&user.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, nil //это бед-бед. Нужно проверить, точно ли юзер равен 0???
+		//nil,nil не делаем, делаем явный возврат ошибки !
 	}
 	//антипатер, мне обработать каждую ошибку 
 	if err != nil {

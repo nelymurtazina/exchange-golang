@@ -11,7 +11,7 @@ import (
 type contextKey string
 const RequestIDKey contextKey = "x-request-id"
 
-func XRequestIDInterceptor(
+func XRequestIDInterceptor( //обработчик, должна возвращать UNaryInterseptor. Обернуть логику в возвращающ. функцию
     ctx context.Context,
     req interface{},
     info *grpc.UnaryServerInfo,

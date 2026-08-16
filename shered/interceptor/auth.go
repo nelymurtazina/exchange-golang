@@ -29,6 +29,8 @@ func AuthInterceptor(userClient userv1.UserServiceClient) grpc.UnaryServerInterc
             return handler(ctx, req)
         }
 
+
+
         // Извлекаем токен из метаданных
         md, ok := metadata.FromIncomingContext(ctx)
         if !ok {
@@ -60,10 +62,14 @@ func AuthInterceptor(userClient userv1.UserServiceClient) grpc.UnaryServerInterc
             return nil, status.Errorf(codes.Unauthenticated, "invalid token")
         }
 
-        ctx = context.WithValue(ctx, "user_id", resp.UserId)
+        ctx = context.WithValue(ctx, "user_id", resp.UserId)  //контекст кейс стринговый! Как в x-request 
+        //Ничего не сделала с user исправить, добавить логику, посмотреть прошлые правки. 
 
         return handler(ctx, req)
     }
+
+    //не должно быть зависимости от юзера, если упадет. Интерсептор, должен валидировать ЛОКАЛЬНО! на основе сикрет (проверка), а не каждый раз отправлять запрос. 
+    // парсинг хедера и ЛОКАЛЬНО валидирую. 
 }
 
 // GetUserIDFromContext получает user_id из контекста
@@ -71,9 +77,9 @@ func GetUserIDFromContext(ctx context.Context) string {
     if userID, ok := ctx.Value("user_id").(string); ok {
         return userID
     }
-    return ""
+    return "" // проверку, должна стринг, проверка на юзера и возвращать юзейрID b окей(возврат, стринг + боол)
 }
-//нет user_id. сделать как x-requst-id
+//нет user_id. сделать как x-requst-id!!!!!
 
 
 //userService упадет - упадет все. Не должна быть зависимость user

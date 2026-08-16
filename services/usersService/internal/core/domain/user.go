@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/mail"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -72,26 +71,9 @@ func ValidateUserName(name string) error {
 	return nil
 }
 
-func ValidateEmail(email string) error {
-	if email == ""{
-		return ErrInvalidEmail
-	}
-
-	parts := strings.Split(email, "@")
-	if len(parts) != 2{
-		return ErrInvalidEmail
-	}
-
-	if len(parts[0]) == 0 || len(parts[1]) == 0 {
-		return ErrInvalidEmail
-	}
-
-	if !strings.Contains(parts[1], "."){
-		return ErrInvalidEmail
-	}
-	
+func ValidateEmail(email string) error {	
 	//net.mail, uuid проверки добавить.
-	_, err := mail.ParseAddress(email)
+	_, err := mail.ParseAddress(email) //все решаем только этой библиотекой 
 	if err != nil {
 		return ErrInvalidEmail
 	}

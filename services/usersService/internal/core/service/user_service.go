@@ -68,7 +68,7 @@ func (s *userService) Register(ctx context.Context, input ports.RegisterInput) (
 		Active:    true,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
-	}
+	} //нарушаею границы юзера, у меня уже есть NewUser (дублирование логики)
 
 	if err := s.repo.CreateUser(ctx, user); err != nil {
 		return nil, err
@@ -105,6 +105,8 @@ func (s *userService) Login(ctx context.Context, email, password string) (string
 			return "", "", domain.ErrUserNotFound
 		}
 		return "", "", err
+		//уязвимость. Фиктивный вызов кэширования, чтобы не могли узнать, найден пользователь или нет. 
+		//выравнивание время ответа 
 	}
 
 	if !s.passwd.CheckPassword(password, user.Password) {
@@ -144,6 +146,7 @@ func (s *userService) GetUser(ctx context.Context, userID string) (*domain.User,
 }
 
 func (s *userService) ValidateToken(ctx context.Context, tokenString string) (string, string, error) {
+	// валидация токена должна быть чисто криптографической, проверка статуса должна решаться через отзывы (релакейшен лист в редисе)
 	if tokenString == "" {
 		return "", "", domain.ErrInvalidToken
 	}

@@ -12,6 +12,7 @@ service OrderService {
   rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
   rpc GetOrderStatus(GetOrderStatusRequest) returns (GetOrderStatusResponse);
 }
+//скрыть прото файлы, что мы еще не трогали 
 
 enum OrderSide {
   ORDER_SIDE_UNSPECIFIED = 0;

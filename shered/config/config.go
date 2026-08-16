@@ -8,7 +8,10 @@ import (
 
 	"github.com/joho/godotenv"
 )
-
+// У КАЖДОГО СЕРВИСА СВОЙ CONFIG!
+//не должно быть в shered папке никаких упоминаний 
+//миграции под конкретный сервис. они не могут быть общие!
+//
 type Config struct {
 	Database DatabaseConfig
 	JWT      JWTConfig
@@ -24,13 +27,13 @@ type DatabaseConfig struct {
 	SSLMode         string
 	MaxOpenConns    int
 	MaxIdleConns    int
-	ConnMaxLifetime int
+	ConnMaxLifetime int //передавать конкретный тип и хранить как таймдюрейшен
 }
 
 type JWTConfig struct {
 	Secret       string
 	ExpiresHours int
-}
+} //общий 
 
 type ServicesConfig struct {
 	OrderServicePort      string
@@ -38,11 +41,6 @@ type ServicesConfig struct {
 	UserServicePort       string
 }
 
-// type MetricsConfig struct {
-// 	OrderPort      string
-// 	InstrumentPort string
-// 	UserPort       string
-// }
 
 func LoadConfig() Config {
 	// Загружаем .env файл
@@ -52,8 +50,9 @@ func LoadConfig() Config {
 
 	return Config{
 		Database: DatabaseConfig{
+			//ВСЕ ИЗ КОНФИГА 
 			Host:            getEnv("DB_HOST", "localhost"),
-			Port:            getEnvAsInt("DB_PORT", 5432),
+			Port:            getEnvAsInt("DB_PORT", 5432), // из конфига 
 			User:            getEnv("DB_USER", "postgres"),
 			Password:        getEnv("DB_PASSWORD", "password"),
 			DBName:          getEnv("DB_NAME", "exchange"),
@@ -72,6 +71,7 @@ func LoadConfig() Config {
 			UserServicePort:       getEnv("USER_SERVICE_PORT", ":50053"),
 		},
 	}
+	//вызвать ValidateConfig 
 }
 
 // getEnv получаем переменную окружения или возвращает значение по умолчанию

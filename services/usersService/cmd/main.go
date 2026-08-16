@@ -25,6 +25,7 @@ import (
 )
 
 func main() {
+	//миграции пофиксить у каждого сервиса они должны быть свои, 
 	cfg := config.LoadConfig()
 
 	logger, err := zap.NewProduction()
@@ -78,13 +79,15 @@ func main() {
 	
 	grpcHandler := hendler.NewUserHandler(userService)
 
-	grpcServer := grpc.NewServer(
+	grpcServer := grpc.NewServer( //
 		grpc.ChainUnaryInterceptor(
 			interceptor.XRequestIDInterceptor,
 			interceptor.LoggerInterceptor(logger),
 			interceptor.PanicRecoveryInterceptor(logger),
-			
+			//AUTHINTERSEPTOR добавить 
 		),
+		//в прото убираем все месседжи (удалим сообщение об успешно ответи message в прото delete )
+
 	)
 
 	pb.RegisterUserServiceServer(grpcServer, grpcHandler)
@@ -105,12 +108,13 @@ func main() {
 			zap.String("address", cfg.Server.Port),
 		)
 		if err := grpcServer.Serve(lis); err != nil {
-			logger.Fatal("failed to serve", zap.Error(err))
+			logger.Fatal("failed to serve", zap.Error(err)) //НЕЛЬЗЯ ТАК ДЕЛАТЬ использовать loggerErro завершаем корректно через каналы 
 		}
 	}()
 
 	<-stop
 	logger.Info("Shutting down gracefully...")
+	
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -128,4 +132,6 @@ func main() {
 		logger.Info("Shutdown timeout, forcing stop")
 		grpcServer.Stop()
 	}
+
+	//закрыть соединенеие с бд
 }

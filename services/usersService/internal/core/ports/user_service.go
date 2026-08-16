@@ -27,3 +27,5 @@ type UserService interface {
 	RefreshToken(ctx context.Context, refreshToken string) (string, string, error)
 	Logout(ctx context.Context, userID string) error
 }
+
+

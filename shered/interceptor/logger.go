@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type LogEntry struct {
+type LogEntry struct { //мусор. удалить 
     RequestID   string        `json:"request_id"`
     Method      string        `json:"method"`
     StartTime   time.Time     `json:"start_time"`
@@ -16,7 +16,7 @@ type LogEntry struct {
     StatusCode  string        `json:"status_code"`
     Error       string        `json:"error,omitempty"`
 }
-
+//оставить 
 func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
