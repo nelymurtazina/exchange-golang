@@ -41,7 +41,6 @@ message RegisterResponse {
   string user_id = 1;
   string token = 2;        
   string refresh_token = 3; 
-  string message = 4;
 }
 
 message LoginRequest {
@@ -53,16 +52,14 @@ message LoginResponse {
   string user_id = 1;
   string token = 2;
   string refresh_token = 3; 
-  string message = 4;
 }
 
 message LogoutRequest {
-  string user_id = 1; // удалить, работаем по рефреш токену 
-  string refresh_token = 2; 
+  string refresh_token = 1;
 }
 
 message LogoutResponse {
-  string message = 1; //
+  // EMPTY — статус через gRPC codes
 }
 
 message RefreshTokenRequest {
@@ -72,7 +69,6 @@ message RefreshTokenRequest {
 message RefreshTokenResponse {
   string token = 1;
   string refresh_token = 2;
-  string message = 3; // статусы в коде. Удаляем везде message, стутусы принимаем в коде!
 }
 
 message ValidateTokenRequest {
@@ -81,7 +77,6 @@ message ValidateTokenRequest {
 
 message ValidateTokenResponse {
   string user_id = 1;
-  bool valid = 2; //через statusCode передать (либо доп) (убрать!) - должен вернуть ошибку, а не успешный ответ. Удлаяем поэтому 
   string role = 3; 
 }
 

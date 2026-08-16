@@ -8,15 +8,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type LogEntry struct { //мусор. удалить 
-    RequestID   string        `json:"request_id"`
-    Method      string        `json:"method"`
-    StartTime   time.Time     `json:"start_time"`
-    Duration    time.Duration `json:"duration_ms"` //int64
-    StatusCode  string        `json:"status_code"`
-    Error       string        `json:"error,omitempty"`
-}
-//оставить 
+// LoggerInterceptor — логирует запросы, НЕ зависит от сервиса
 func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
@@ -53,6 +45,3 @@ func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 		return resp, err
 	}
 }
-
-
-

@@ -1,40 +1,43 @@
 package interceptor
 
 import (
-    "context"
+	"context"
 
-    "github.com/google/uuid"
-    "google.golang.org/grpc"
-    "google.golang.org/grpc/metadata"
+	"github.com/google/uuid"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
-type contextKey string
-const RequestIDKey contextKey = "x-request-id"
+type requestIDKey struct{}
 
-func XRequestIDInterceptor( //обработчик, должна возвращать UNaryInterseptor. Обернуть логику в возвращающ. функцию
-    ctx context.Context,
-    req interface{},
-    info *grpc.UnaryServerInfo,
-    handler grpc.UnaryHandler,
-) (interface{}, error) {
-    requestID := ""
-    if md, ok := metadata.FromIncomingContext(ctx); ok {
-        if ids := md.Get("x-request-id"); len(ids) > 0 {
-            requestID = ids[0]
-        }
-    }
+// XRequestIDInterceptor — добавляет x-request-id, НЕ зависит от сервиса
+func XRequestIDInterceptor() grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (interface{}, error) {
+		requestID := ""
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if ids := md.Get("x-request-id"); len(ids) > 0 {
+				requestID = ids[0]
+			}
+		}
 
-    if requestID == "" {
-        requestID = uuid.NewString()
-    }
+		if requestID == "" {
+			requestID = uuid.NewString()
+		}
 
-    ctx = context.WithValue(ctx, RequestIDKey, requestID)
-    return handler(ctx, req)
+		ctx = context.WithValue(ctx, requestIDKey{}, requestID)
+		return handler(ctx, req)
+	}
 }
 
+// GetRequestID — возвращает request_id из контекста
 func GetRequestID(ctx context.Context) string {
-    if id, ok := ctx.Value(RequestIDKey).(string); ok { 
-        return id
-    }
-    return ""
+	if id, ok := ctx.Value(requestIDKey{}).(string); ok {
+		return id
+	}
+	return ""
 }
