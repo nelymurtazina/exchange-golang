@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "test-project/gen/common;commonv1";
+
+message Decimal {
+    int64 units = 1 [
+        (validate.rules).int64 = {
+            gte: 0  // >= 0 
+        }
+    ];
+    int32 nanos = 2 [
+        (validate.rules).int32 = {
+            gte: 0,      // >= 0
+            lte: 999999999 // <= 999999999
+        }
+    ];
+}

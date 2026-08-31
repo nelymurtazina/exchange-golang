@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package package_name;
+option go_package = "test-project/api/gen/user;user"; 
+import "google/protobuf/timestamp.proto";
+import "validate/validate.proto";  
+ 
+
+service UserService{
+    rpc Register(RegistrRequest) returns(RegistrResponse);
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc Logout(LogoutRequest) returns (LogoutResponse);
+    rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+    rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+}
+
+message User{
+    string userID = 1 [
+        (validate.rules).string.uuid = true
+    ];
+    string username = 2[
+        (validate.rules).string = {
+            min_len: 3,
+            max_len: 50,
+            pattern: "^[a-zA-Z0-9_-]+$"
+        }
+    ];
+    string email = 3[
+        (validate.rules).string.email = true
+    ];
+    string password = 4[
+        (validate.rules).string = {
+            min_len: 8,
+            max_len: 72
+        }
+    ];
+    Role role = 5;
+    google.protobuf.Timestamp CreateAt = 6;
+    google.protobuf.Timestamp UpdateAt = 7;
+}
+enum Role {
+    ROLE_UNKNOWN = 0; 
+    ROLE_USER = 1;
+    ROLE_ADMIN = 2;
+    ROLE_GUEST = 3;
+}
+
+//нужно ли тут валидировать если я messageUser валидировала?
+message RegistrRequest {
+    string username = 1;
+    string email = 2;
+    string password = 3;
+} 
+
+message RegistrResponse{
+    string userID = 1; //uuid
+    string access_token = 2;
+    string refresh_token = 3;
+}
+
+message LoginRequest { 
+    string email = 1; 
+    string password = 2;
+}
+message LoginResponse{
+    string access_token = 1;
+    string refresh_token = 2;
+}
+
+message LogoutRequest{
+    string refresh_token = 1;
+    string userID = 2 [
+        (validate.rules).string.uuid = true
+    ];
+}
+message LogoutResponse {
+  // Пусто — статус через gRPC codes
+}
+
+message GetUserRequest  {
+    string userID = 1;
+}
+
+message GetUserResponse{
+  string userID = 1;
+  string username = 2;
+  string email = 3; 
+  Role role = 4;
+  google.protobuf.Timestamp CreateAt = 5;
+  google.protobuf.Timestamp UpdateAt = 6;
+}
+
+message ValidateTokenRequest{
+    string access_token = 1 [
+        (validate.rules).string = {
+            min_len: 1
+        }
+    ];
+}
+
+message ValidateTokenResponse {
+  string userID = 1;
+  Role role = 2;
+}
+
+message RefreshTokenRequest{
+    string refresh_token = 1 [
+        (validate.rules).string = {
+            min_len: 1
+        }
+    ];
+}
+
+message RefreshTokenResponse{
+    string access_token = 1;
+    string refresh_token = 2;
+}

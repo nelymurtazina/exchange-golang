@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "test-project/gen/common;commonv1";
+
+import "common/decimal.proto";
+
+message Money {
+  Decimal amount = 1 [
+        (validate.rules).message = {
+            required: true
+        }
+    ];
+    string currency_code = 2 [
+        (validate.rules).string = {
+            min_len: 3,
+            max_len: 3,
+            pattern: "^[A-Z]{3}$"
+        }
+    ];
+}
