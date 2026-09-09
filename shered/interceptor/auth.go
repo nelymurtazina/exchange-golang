@@ -17,7 +17,7 @@ type JWTValidator interface {
 
 type userIDKey struct{}
 
-func AuthInterceptor(validator JWTValidator, skipMethods []string) grpc.UnaryServerInterceptor {
+func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []string) grpc.UnaryServerInterceptor {
 	skipMap := make(map[string]bool, len(skipMethods))
 	for _, m := range skipMethods {
 		skipMap[m] = true
@@ -33,27 +33,13 @@ func AuthInterceptor(validator JWTValidator, skipMethods []string) grpc.UnarySer
 			return handler(ctx, req)
 		}
 
-		md, ok := metadata.FromIncomingContext(ctx)
-		if !ok {
-			return nil, status.Errorf(codes.Unauthenticated, "metadata is not provided")
-		}
-
-		authHeader := md.Get("authorization")
-		if len(authHeader) == 0 {
-			return nil, status.Errorf(codes.Unauthenticated, "authorization token is missing")
-		}
-
-		// "Bearer <token>" — не чувствительный к регистру
-		parts := strings.SplitN(authHeader[0], " ", 2)
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			return nil, status.Errorf(codes.Unauthenticated, "invalid authorization header format")
-		}
-
-		token := parts[1]
-
-		userID, err := validator.ValidateAccessToken(token)
+		userID, err := validateTokenFromContext(ctx, validator)
 		if err != nil {
-			return nil, status.Errorf(codes.Unauthenticated, "invalid token: %v", err)
+			logger.Warn("auth failed",
+				zap.String("request_id", GetRequestID(ctx)),
+				zap.String("method", info.FullMethod),
+			)
+			return nil, status.Errorf(codes.Unauthenticated, "invalid token")
 		}
 
 		ctx = context.WithValue(ctx, userIDKey{}, userID)
@@ -61,15 +47,6 @@ func AuthInterceptor(validator JWTValidator, skipMethods []string) grpc.UnarySer
 		return handler(ctx, req)
 	}
 }
-
-// GetUserIDFromContext — возвращает user_id из контекста
-func GetUserIDFromContext(ctx context.Context) (string, bool) {
-	userID, ok := ctx.Value(userIDKey{}).(string)
-	return userID, ok
-}
-
-
-
 
 func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []string) grpc.StreamServerInterceptor {
 	skipMap := make(map[string]bool, len(skipMethods))
@@ -83,49 +60,49 @@ func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMetho
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) error {
-		ctx := ss.Context()
-
 		if skipMap[info.FullMethod] {
 			return handler(srv, ss)
 		}
 
-		md, ok := metadata.FromIncomingContext(ctx)
-		if !ok {
-			return status.Errorf(codes.Unauthenticated, "metadata is not provided")
-		}
-
-		authHeader := md.Get("authorization")
-		if len(authHeader) == 0 {
-			return status.Errorf(codes.Unauthenticated, "authorization token is missing")
-		}
-
-		parts := strings.SplitN(authHeader[0], " ", 2)
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			return status.Errorf(codes.Unauthenticated, "invalid authorization header format")
-		}
-
-		token := parts[1]
-
-		userID, err := validator.ValidateAccessToken(token)
+		userID, err := validateTokenFromContext(ss.Context(), validator)
+		
 		if err != nil {
-			return status.Errorf(codes.Unauthenticated, "invalid token: %v", err)
+			logger.Warn("auth failed",
+				zap.String("request_id", GetRequestID(ss.Context())),
+				zap.String("method", info.FullMethod),
+			)
+			return status.Errorf(codes.Unauthenticated, "invalid token")
 		}
-
-		// Сохраняем user_id в контекст стрима
-		wrappedStream := &wrappedServerStream{
-			ServerStream: ss,
-			ctx:          context.WithValue(ctx, userIDKey{}, userID),
-		}
+		
+		ctx := context.WithValue(ss.Context(), userIDKey{}, userID)
+		wrappedStream := NewWrappedServerStream(ss, ctx)
 
 		return handler(srv, wrappedStream)
 	}
 }
 
-type wrappedServerStream struct {
-	grpc.ServerStream
-	ctx context.Context
+func validateTokenFromContext(ctx context.Context, validator JWTValidator) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", status.Errorf(codes.Unauthenticated, "metadata is not provided")
+	}
+
+	authHeader := md.Get("authorization")
+	if len(authHeader) == 0 {
+		return "", status.Errorf(codes.Unauthenticated, "authorization token is missing")
+	}
+
+	// "Bearer <token>" — не чувствительный к регистру
+	parts := strings.SplitN(authHeader[0], " ", 2)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		return "", status.Errorf(codes.Unauthenticated, "invalid authorization header format")
+	}
+
+	return validator.ValidateAccessToken(parts[1])
 }
 
-func (w *wrappedServerStream) Context() context.Context {
-	return w.ctx
+// GetUserIDFromContext — возвращает user_id из контекста
+func GetUserIDFromContext(ctx context.Context) (string, bool) {
+	userID, ok := ctx.Value(userIDKey{}).(string)
+	return userID, ok
 }

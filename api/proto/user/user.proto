@@ -1,13 +1,13 @@
 syntax = "proto3";
 
-package package_name;
-option go_package = "test-project/api/gen/user;user"; 
+package user.v1;
+option go_package = "test-project/api/gen/user;userv1"; 
 import "google/protobuf/timestamp.proto";
 import "validate/validate.proto";  
  
 
 service UserService{
-    rpc Register(RegistrRequest) returns(RegistrResponse);
+    rpc Register(RegisterRequest) returns(RegisterResponse);
     rpc Login(LoginRequest) returns (LoginResponse);
     rpc Logout(LogoutRequest) returns (LogoutResponse);
     rpc GetUser(GetUserRequest) returns (GetUserResponse);
@@ -16,7 +16,7 @@ service UserService{
 }
 
 message User{
-    string userID = 1 [
+    string user_id = 1 [
         (validate.rules).string.uuid = true
     ];
     string username = 2[
@@ -36,8 +36,8 @@ message User{
         }
     ];
     Role role = 5;
-    google.protobuf.Timestamp CreateAt = 6;
-    google.protobuf.Timestamp UpdateAt = 7;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
 }
 enum Role {
     ROLE_UNKNOWN = 0; 
@@ -46,22 +46,43 @@ enum Role {
     ROLE_GUEST = 3;
 }
 
-//нужно ли тут валидировать если я messageUser валидировала?
-message RegistrRequest {
-    string username = 1;
-    string email = 2;
-    string password = 3;
+message RegisterRequest {
+    string username = 1[
+        (validate.rules).string = {
+            min_len: 3,
+            max_len: 50,
+            pattern: "^[a-zA-Z0-9_-]+$"
+        }
+    ];
+    string email = 2 [
+        (validate.rules).string.email = true
+    ];
+    string password = 3[
+        (validate.rules).string = {
+            min_len: 8,
+            max_len: 72
+        }
+    ];
 } 
 
-message RegistrResponse{
-    string userID = 1; //uuid
+message RegisterResponse{
+    string user_id = 1[
+        (validate.rules).string.uuid = true
+    ]; //uuid
     string access_token = 2;
     string refresh_token = 3;
 }
 
 message LoginRequest { 
-    string email = 1; 
-    string password = 2;
+    string email = 1[
+        (validate.rules).string.email = true
+    ]; 
+    string password = 2[
+        (validate.rules).string = {
+            min_len: 8,
+            max_len: 72
+        }
+    ];
 }
 message LoginResponse{
     string access_token = 1;
@@ -69,8 +90,12 @@ message LoginResponse{
 }
 
 message LogoutRequest{
-    string refresh_token = 1;
-    string userID = 2 [
+    string refresh_token = 1[
+        (validate.rules).string = {
+            min_len: 1
+        }
+    ];
+    string user_id = 2 [
         (validate.rules).string.uuid = true
     ];
 }
@@ -79,16 +104,18 @@ message LogoutResponse {
 }
 
 message GetUserRequest  {
-    string userID = 1;
+    string user_id = 1[
+        (validate.rules).string.uuid = true
+    ];
 }
 
 message GetUserResponse{
-  string userID = 1;
+  string user_id = 1;
   string username = 2;
   string email = 3; 
   Role role = 4;
-  google.protobuf.Timestamp CreateAt = 5;
-  google.protobuf.Timestamp UpdateAt = 6;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }
 
 message ValidateTokenRequest{
@@ -100,7 +127,7 @@ message ValidateTokenRequest{
 }
 
 message ValidateTokenResponse {
-  string userID = 1;
+  string user_id = 1;
   Role role = 2;
 }
 

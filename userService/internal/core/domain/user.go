@@ -17,6 +17,7 @@ type User struct {
 	Role     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	DeletedAt *time.Time
 }
 
 var(
@@ -29,9 +30,13 @@ var(
 	ErrUserDisabled = errors.New("Пользователь заблокирован")
 	ErrInvalidCredentials = errors.New("Неверные учётные данные")
 	ErrInvalidToken = errors.New("Невалидный JWT токен")
-	
+	ErrInvalidRole = errors.New("Невалидная роль пользователя")
+	ErrUserDeleted = errors.New("user account has been deleted")
+	ErrUsernameAlreadyExists = errors.New("username already exists")
 	ValidUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
 	RoleUser = "ROLE_USER"
+	RoleAdmin = "ROLE_ADMIN"
+    RoleGuest = "ROLE_GUEST"
 )
 
 func NewUser(userID, userName, email, password, role string) (*User, error){
@@ -47,12 +52,15 @@ func NewUser(userID, userName, email, password, role string) (*User, error){
 	if err := ValidateID(userID); err != nil {
 		return nil, err
 	}
+	if err := ValidateRole(role); err != nil {
+        return nil, err
+    }
 	return &User{
 		UserID: userID,
 		UserName: userName,
 		Email: email,
 		Password: password,
-		Role: RoleUser,
+		Role: role,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}, nil
@@ -92,7 +100,7 @@ func ValidateEmail(email string) error{
 }
 
 func ValidatePassword(password string) error{
-	if password == "" && len(password)>8{
+	if password == "" && len(password)<8{
 		return ErrInvalidPassword
 	}
 	return nil
@@ -100,4 +108,13 @@ func ValidatePassword(password string) error{
 
 func NewUserID() string {
 	return uuid.New().String()
+}
+
+func ValidateRole(role string) error {
+    switch role {
+    case RoleUser, RoleAdmin, RoleGuest:
+        return nil
+    default:
+        return ErrInvalidRole
+    }
 }

@@ -19,6 +19,8 @@ import (
 	"test-project/userService/internal/core/service"
 
 	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -81,14 +83,14 @@ func main() {
 	
 	grpcHandler := hendler.NewUserHandler(userService)
 	skipMethods := []string{
-		"/user.v1.UserService/Register",
-		"/user.v1.UserService/Login",
-	}
+		"/user.v1.UserService/Register",  
+		"/user.v1.UserService/Login",    
+}
 	grpcServer := grpc.NewServer( 
 		grpc.ChainUnaryInterceptor(
 			interceptor.XRequestIDInterceptor(),
 			interceptor.PanicRecoveryInterceptor(logger),
-			interceptor.AuthInterceptor(jwtManager, skipMethods), 
+			interceptor.AuthInterceptor(jwtManager, logger, skipMethods), 
 			interceptor.LoggerInterceptor(logger),
 		),
 		grpc.ChainStreamInterceptor(
@@ -144,7 +146,4 @@ func main() {
 		grpcServer.Stop()
 	}
 
-	if err := db.Close(); err != nil {
-		logger.Error("failed to close database connection", zap.Error(err))
-	}
 }

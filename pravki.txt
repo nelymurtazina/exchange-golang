@@ -1,0 +1,269 @@
+ПРАВКИ 26.08!!!
+-протовалидайт 
+message ValidateTokenResponse {
+  string user_id = 1;
+  string role = 2;  //unam ролей (0, user, premUser, admin, )
+}
++
+-протовалидацию для всех прото файлов (децемал и тд)
+-//эксестокен переименновать +
+
+
+-исправить конфиг, брать все поля из .env
+// У КАЖДОГО СЕРВИСА СВОЙ CONFIG!
+//не должно быть в shered папке никаких упоминаний 
+//миграции под конкретный сервис. они не могут быть общие!
+//+
+
+
+-   db.SetMaxOpenConns(25)     // Максимум открытых соединений. А если в сервисе потребуется больше? 
+    //должно быть конфигурируемо в (.env)
+    db.SetMaxIdleConns(5)      // Максимум простаивающих соединений(все в (.env))
+    db.SetConnMaxLifetime(5 * time.Minute) // Время жизни соединения (все в (.env))
+    //ДОЛЖна передавать + логгер не использую
+    //исправить, брать из конфига +
+убрать из database и брать из .env
+
+
+- из конфиг убрать int в таймдюрейшен
+   MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime int //передавать конкретный тип и хранить как таймдюрейшен!
++
+
+
+- в интерсепто логер :+
+else {
+			logger.Info("gRPC request completed",
+				zap.String("method", info.FullMethod), //огромный объем бесполезных логов,
+				zap.String("request_id", requestID),
+				zap.Duration("duration", duration),
+			)
+		}
+
+		//важно логировать grpc status code ошибки !+
+		return resp, err
+
+- unaryReseptor оставляем и добавляем в интерсепторе, нужно реализовать StreemReseptor Для всех! 
+
+-датабейс/пострес
+if err := db.Ping(); err != nil {
+        return nil, fmt.Errorf("failed to ping database: %w", err)
+    } // реальное подключение тут, и если завершается с ошибкой, будет удерживать процесс. НУЖНО ДОБАВИТЬ ОБРАБОТКУ ошибок и добавить db.close
+    +
+
+- config:
+func LoadConfig() Config {//добавить+ error}
+MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 5), // для настроект, функция должна возвращать error, чтобы смогло приложение завершиться на старте 
++
+
+- в сервисе нет logot (не реализовалаа метод logout )
+-проверить нейминг везде +
+
+-
+// NewConnection — подключение к БД (из конфига) 
+func NewConnection(cfg config.DatabaseConfig) (*sql.DB, error) {
+	dsn := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode,
+	)
+
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	db.SetMaxOpenConns(cfg.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.MaxIdleConns)
+	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+ - убрать, дублируется логика + sheredю либо в конфиге удалем, либо в userService!+
+
+ -matched, _ := regexp.MatchString("^[a-zA-Z0-9]+$", name) // при каждом вызове фун-и - нагрузка на GC, вынести в логику домаин(на уровне пакета)
+
+ -	"exp":     time.Now().Add(time.Duration(m.expiresHours*7) * time.Hour).Unix(), //time.Now (uux, строго 7 дней исправить)
+ -везде в конфиге использовать zap убираем logger
+ -почистить комментарии
+
+ --if user == nil {
+		return nil, domain.ErrUserNotFound
+	} //избыточно в core/service
+
+-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/lib/pq"
+	//pqconn 
+в postgres
+
+
+-// Login — вход (защита от атак)
+func (s *userService) Login(ctx context.Context, input ports.LoginInput) (*ports.LoginOutput, error) {
+	//Валидация
+	if err := domain.ValidateEmail(input.Email); err != nil {
+		return nil, err
+	}
+	if input.Password == "" {
+		return nil, domain.ErrInvalidPassword
+	}
+
+	// Ищем пользователя
+	user, err := s.repo.GetByEmail(ctx, input.Email)
+	if err != nil {
+		if err == domain.ErrUserNotFound {
+			// Защита от атак — одинаковая ошибка
+			return nil, domain.ErrInvalidCredentials
+		}
+		return nil, err
+	}
+	//time атаки. Эффективная проверка хэша даже если пользователь не найден 
+
+
+
+
+
+03/09
+Proto:+
+	-нейминг в прото + поля в нейминге
+
+	-валидирую все в прото (ответ-запрос)
+	message RegistrRequest {
+    string username = 1;
+    string email = 2;
+    string password = 3;
+	} 
+- userID -. user_id
+
+shered:
+- дубликаты в auth +
+// Сохраняем user_id в контекст стрима
+		wrappedStream := &wrappedServerStream{
+			ServerStream: ss,
+			ctx:          context.WithValue(ctx, userIDKey{}, userID),
+		}
+Вынести в отдельную структуру и использовать (убрать дублирвоание)+
+
+- auth: + x-rexest
+if err != nil {
+			return status.Errorf(codes.Unauthenticated, "invalid token: %v", err)
+		}
+если вернет ошибку например (сигнатуры). должна вернуть общую причину(без деталей)+
+- //logger *zap.Logger, - не убираю, а добавляю логику логирования! +
+
+logger:+
+//объем многих логов. (дебаг используем и для обозначения конца и начала испольуй инфо )
+logger.Info("gRPC request started", 
+			zap.String("method", info.FullMethod), 
+			zap.String("request_id", requestID),
+		)
+- логер дублируем+
+
+**проанализировать унари и стрим, (у меня они одинаковые)+ 
+- дублирование логики
+//logger *zap.Logger, - не убираю, а добавляю логику логирования! +
+
+
+
+- миграция: 
+CREATE TABLE users (
+    user_id UUID PRIMARY KEY,
+    username VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'user',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    
+);
+
+Добавить удаление+
+
+- service/ user_service +
+if err := s.repo.Create(ctx,user); err != nil{
+		//ошибку изменить(либо общая ошибка сервера)
+		return  nil, domain.ErrInvalidUsername
+	}
+
+
+в миграции:
+- role VARCHAR(50) DEFAULT 'user',
+привести к единому стилю и имзенить к роли
++
+
+-//сделать с дефолтным значением
+func getEnvAsBool(key string) (bool, error) {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return false, errors.New(key + " is required in .env")
+	}
+
+	boolValue, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, errors.New(key + " must be true or false, got: " + value)
+	}
+
+	//если переменная не обяхательна, то переменная по умолчанию
+
+	return boolValue, nil
+}+
+
+
+//сгенерировать еще раз с 12 +
+	const fakePasswordHash = "$2a$10$eD30kk.F4KTkg3ovmAfcTeFzRykAl.YWrvrWxyK.k8RwswLEXFQAO"
+	hashToCompare := fakePasswordHash
+	if user != nil 
+
+
+- user_service:+
+//может произойти паника. исправить проверку ошибки
+	user, err := s.repo.GetByID(ctx, userID)
+	if err != nil && err == domain.ErrUserNotFound{
+		return nil, domain.ErrInvalidToken
+	}
+- обработать кейс, если пользователь был удален(специическая ошибка для удаление. и явно обработать)+
+- userName тоже должен быть уникальным как и id (юник) +
+
+- postgres / adapter разделить на IO baunt и OUT баунт 
+не сделала, не поняла
+
+
+
+
+- SpotService (секреты)
+храним в мастер ключ (postgres) хранить через флаги или переменные окружения! 
+
+SpotInstrumentService: Управляет рынками (market), предоставляя информацию о доступных рынках.
+OrderService вызывает SpotInstrumentService для проверки доступности рынка перед созданием заказа.
+
+Реализация серверов
+Реализуйте два gRPC-сервиса с использованием предоставленных интерсепторов.
+SpotInstrumentService
+Метод ViewMarkets (ListMarket):
+Принимает user_roles и возвращает список доступных рынков (только те, где enabled: true и deleted_at равно null).
+Хранить данные в in-memory хранилище (например, map[string]Market). postgreSQL
+Реализовать маппер для преобразования доменных сущностей в proto-структуры.
+Интерсепторы:
+XRequestID: Добавляет x-request-id в контекст.
+LoggerInterceptor: Логирует запросы с помощью zap.
+UnaryPanicRecoveryInterceptor: Обрабатывает паники, возвращая ошибку codes.Internal.
+prometheus.UnaryServerInterceptor: Собирает метрики.
+
+Реализация маппера
+Создайте маппер для SpotInstrumentService, который преобразует доменные сущности рынка в proto-структуры (Market).
+Маппер простыми словами — это переводчик данных внутри вашей программы.
+
+SpotInstrumentService — это микросервис, который управляет торговыми инструментами (рынками) в биржевой системе. Он отвечает за:
+
+Хранение информации о доступных рынках (BTC/USD, ETH/USD, XRP/USD)
+Предоставление списка активных рынков
+Предоставление информации о конкретном рынке
+Фильтрацию рынков по статусу (активные/неактивные/удалённые)
+
+ports/market_repository.go — Интерфейс для БД
+ports/market_service.go — Интерфейс для БИЗНЕС-ЛОГИКИ

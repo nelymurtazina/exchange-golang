@@ -91,7 +91,7 @@ func LoadConfig() (Config, error){
 	cfg.Services.UserServicePort = getEnv("USER_SERVICE_PORT")
 
 	// Migration
-	cfg.Migration.Enabled, err = getEnvAsBool("MIGRATION_ENABLED")
+	cfg.Migration.Enabled = getEnvAsBool("MIGRATION_ENABLED", true)
 	if err != nil {
 		// Если ошибка — по умолчанию true
 		cfg.Migration.Enabled = true
@@ -161,17 +161,16 @@ func (c Config) Validate() error {
 	return nil
 }
 
-
-func getEnvAsBool(key string) (bool, error) {
+func getEnvAsBool(key string, defaultValue bool) bool {
 	value, exists := os.LookupEnv(key)
 	if !exists || value == "" {
-		return false, errors.New(key + " is required in .env")
+		return defaultValue
 	}
 
 	boolValue, err := strconv.ParseBool(value)
 	if err != nil {
-		return false, errors.New(key + " must be true or false, got: " + value)
+		log.Printf("WARNING: invalid bool for %s: %q, using default %v", key, value, defaultValue)
+		return defaultValue
 	}
-
-	return boolValue, nil
+	return boolValue
 }

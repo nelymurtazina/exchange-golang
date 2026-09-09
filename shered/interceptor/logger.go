@@ -9,7 +9,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// LoggerInterceptor — логирует запросы, НЕ зависит от сервиса
 func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
@@ -20,13 +19,12 @@ func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 		requestID := GetRequestID(ctx)
 		startTime := time.Now()
 		
-
-		logger.Info("gRPC request started",
-			zap.String("method", info.FullMethod),  //огромный объем бесполезных логов,
+		logger.Debug("gRPC request started",
 			zap.String("request_id", requestID),
 		)
 
 		resp, err := handler(ctx, req)
+
 		duration := time.Since(startTime)
 		code := status.Code(err).String()
 
@@ -49,9 +47,6 @@ func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 }
 
 
-
-
-
 func LoggerStreamInterceptor(logger *zap.Logger) grpc.StreamServerInterceptor {
 	return func(
 		srv interface{},
@@ -62,8 +57,7 @@ func LoggerStreamInterceptor(logger *zap.Logger) grpc.StreamServerInterceptor {
 		requestID := GetRequestID(ss.Context())
 		startTime := time.Now()
 
-		logger.Info("gRPC stream started",
-			zap.String("method", info.FullMethod),
+		logger.Debug("gRPC stream started",
 			zap.String("request_id", requestID),
 		)
 

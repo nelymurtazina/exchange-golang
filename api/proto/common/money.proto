@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package common.v1;
+import "validate/validate.proto";
 
 option go_package = "test-project/gen/common;commonv1";
 

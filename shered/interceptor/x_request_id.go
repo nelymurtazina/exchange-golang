@@ -17,30 +17,11 @@ func XRequestIDInterceptor() grpc.UnaryServerInterceptor {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
-		requestID := ""
-		if md, ok := metadata.FromIncomingContext(ctx); ok {
-			if ids := md.Get("x-request-id"); len(ids) > 0 {
-				requestID = ids[0]
-			}
-		}
-
-		if requestID == "" {
-			requestID = uuid.NewString()
-		}
-
+		requestID := getOrGenerateRequestID(ctx)
 		ctx = context.WithValue(ctx, requestIDKey{}, requestID)
 		return handler(ctx, req)
 	}
 }
-
-func GetRequestID(ctx context.Context) string {
-	if id, ok := ctx.Value(requestIDKey{}).(string); ok {
-		return id
-	}
-	return ""
-}
-
-
 
 
 func XRequestIDStreamInterceptor() grpc.StreamServerInterceptor {
@@ -50,26 +31,28 @@ func XRequestIDStreamInterceptor() grpc.StreamServerInterceptor {
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) error {
-		ctx := ss.Context()
-		requestID := ""
+		requestID := getOrGenerateRequestID(ss.Context())
+		ctx := context.WithValue(ss.Context(), requestIDKey{}, requestID)
 
-		if md, ok := metadata.FromIncomingContext(ctx); ok {
-			if ids := md.Get("x-request-id"); len(ids) > 0 {
-				requestID = ids[0]
-			}
-		}
-
-		if requestID == "" {
-			requestID = uuid.NewString()
-		}
-
-		ctx = context.WithValue(ctx, requestIDKey{}, requestID)
-
-		wrappedStream := &wrappedServerStream{
-			ServerStream: ss,
-			ctx:          ctx,
-		}
+		wrappedStream := NewWrappedServerStream(ss, ctx)
 
 		return handler(srv, wrappedStream)
 	}
+}
+
+func getOrGenerateRequestID(ctx context.Context) string {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if ids := md.Get("x-request-id"); len(ids) > 0 && ids[0] != "" {
+			return ids[0]
+		}
+	}
+	return uuid.NewString()
+}
+
+//получить req по ID
+func GetRequestID(ctx context.Context) string {
+	if id, ok := ctx.Value(requestIDKey{}).(string); ok {
+		return id
+	}
+	return ""
 }

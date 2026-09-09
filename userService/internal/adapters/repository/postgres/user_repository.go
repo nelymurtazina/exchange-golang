@@ -88,6 +88,7 @@ func (u *UserRepository) Update(ctx context.Context, user *domain.User) error {
 
 func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
 	var user domain.User
+	var deletedAt sql.NullTime 
 	err := row.Scan(
 		&user.UserID,
 		&user.UserName,
@@ -96,6 +97,7 @@ func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
 		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
+		&deletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -103,6 +105,10 @@ func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
 		}
 		return nil, err
 	}
+
+	if deletedAt.Valid {
+        user.DeletedAt = &deletedAt.Time
+    }
 
 	return &user, nil
 }
