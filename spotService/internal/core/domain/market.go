@@ -25,17 +25,17 @@ type Market struct {
 	BaseAsset  string
 	QuoteAsset string
 	Enabled    bool
-	Price commonv1.Money
+	Price *commonv1.Money
 	CreatedAt  time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
 }
 
-func NewMarket(marketID, name, baseAsset, quoteAsset string, price commonv1.Money) (*Market, error){
+func NewMarket(marketID, name, baseAsset, quoteAsset string, price *commonv1.Money) (*Market, error){
 	if err := ValidateMarketID(marketID); err != nil{
 		return nil, err
 	}
-	if err := ValidateMarketName(marketID); err != nil{
+	if err := ValidateMarketName(name); err != nil{
 		return nil, err
 	}
 	if err := ValidateAsset(baseAsset); err != nil {
@@ -95,7 +95,10 @@ func ValidateAsset(asset string) error {
     return nil
 }
 
-func ValidatePrice(price commonv1.Money) error {
+func ValidatePrice(price *commonv1.Money) error {
+	if price == nil {
+        return ErrInvalidPrice
+    }
     if price.Amount == nil {
         return ErrInvalidPrice
     }

@@ -92,10 +92,6 @@ func LoadConfig() (Config, error){
 
 	// Migration
 	cfg.Migration.Enabled = getEnvAsBool("MIGRATION_ENABLED", true)
-	if err != nil {
-		// Если ошибка — по умолчанию true
-		cfg.Migration.Enabled = true
-	}
 	cfg.Migration.Path = getEnv("USER_MIGRATION_PATH")
 
 	if err := cfg.Validate(); err != nil {

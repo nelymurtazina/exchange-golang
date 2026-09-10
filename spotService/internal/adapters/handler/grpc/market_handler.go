@@ -94,6 +94,6 @@ func toProtoMarket(m *domain.Market) *pb.Market {
         CreatedAt:  timestamppb.New(m.CreatedAt),
         UpdatedAt:  timestamppb.New(m.UpdatedAt),
         DeletedAt:  deletedAt,
-        Price:      &m.Price,
+        Price:      m.Price,
     }
 }
