@@ -12,7 +12,6 @@ import (
 
 type Config struct {
 	Database DatabaseConfig
-	JWT      JWTConfig
 	Services ServicesConfig
 	Migration MigrationConfig
 }
@@ -27,11 +26,6 @@ type DatabaseConfig struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
-}
-
-type JWTConfig struct {
-	Secret       string
-	ExpiresHours int
 }
 
 type ServicesConfig struct {
@@ -78,25 +72,13 @@ func LoadConfig() (Config, error){
 	}
 	cfg.Database.ConnMaxLifetime = time.Duration(lifetime) * time.Minute
 
-	// JWT
-	cfg.JWT.Secret = getEnv("JWT_SECRET")
-	cfg.JWT.ExpiresHours, err = getEnvAsInt("JWT_EXPIRES_HOURS")
-	if err != nil {
-		return cfg, err
-	}
-
-	// Services
 	cfg.Services.OrderServicePort = getEnv("ORDER_SERVICE_PORT")
 	cfg.Services.InstrumentServicePort = getEnv("INSTRUMENT_SERVICE_PORT")
 	cfg.Services.UserServicePort = getEnv("USER_SERVICE_PORT")
 
 	// Migration
 	cfg.Migration.Enabled = getEnvAsBool("MIGRATION_ENABLED", true)
-	if err != nil {
-		// Если ошибка — по умолчанию true
-		cfg.Migration.Enabled = true
-	}
-	cfg.Migration.Path = getEnv("USER_MIGRATION_PATH")
+	cfg.Migration.Path = getEnv("SPOT_MIGRATION_PATH")
 
 	if err := cfg.Validate(); err != nil {
 		return cfg, err
@@ -145,12 +127,6 @@ func (c Config) Validate() error {
 	}
 	if c.Database.ConnMaxLifetime <= 0 {
 		return errors.New("DB_CONN_MAX_LIFETIME must be > 0")
-	}
-	if c.JWT.Secret == "" {
-		return errors.New("JWT_SECRET is required")
-	}
-	if c.JWT.ExpiresHours <= 0 {
-		return errors.New("JWT_EXPIRES_HOURS must be > 0")
 	}
 	if c.Services.UserServicePort == "" {
 		return errors.New("USER_SERVICE_PORT is required")

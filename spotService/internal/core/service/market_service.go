@@ -1,66 +1,53 @@
 package service
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"test-project/spotService/internal/core/domain"
-	"test-project/spotService/internal/core/ports"
+    "context"
+    "errors"
+    "fmt"
+
+    "test-project/spotService/internal/core/domain"
+    "test-project/spotService/internal/core/ports"
 )
 
 type MarketService struct {
-	repo ports.MarketRepository
+    repo ports.MarketRepository
 }
 
 func NewMarketService(repo ports.MarketRepository) ports.MarketService {
-	return &MarketService{
-		repo: repo,
-	}
+    return &MarketService{
+        repo: repo,
+    }
 }
 
-func (m *MarketService) GetMarket(ctx context.Context, input ports.GetMarketInput) (*ports.GetMarketOutput, error) {
-	if err := domain.ValidateMarketID(input.MarketID); err != nil{
-		return nil, err
-	}
-	
-	market, err := m.repo.GetByID(ctx, input.MarketID)
-	if err != nil {
-		if errors.Is(err, domain.ErrMarketNotFound){
-			return nil, domain.ErrMarketNotFound
-		}
-		return nil, fmt.Errorf("error", err)
-	}
+func (s *MarketService) GetMarket(ctx context.Context, input ports.GetMarketInput) (*ports.GetMarketOutput, error) {
+    if err := domain.ValidateMarketID(input.MarketID); err != nil {
+        return nil, err
+    }
 
-	if market == nil {
+    market, err := s.repo.GetByID(ctx, input.MarketID)
+    if err != nil {
+        if errors.Is(err, domain.ErrMarketNotFound) {
+            return nil, domain.ErrMarketNotFound
+        }
+        return nil, fmt.Errorf("failed to get market: %w", err)
+    }
+    if market == nil {
         return nil, domain.ErrMarketNotFound
     }
 
-	if market.DeletedAt != nil && !market.DeletedAt.IsZero() {
-        return nil, domain.ErrMarketNotFound
-    }
-	return market, nil
+    return &ports.GetMarketOutput{
+        Market: market,
+    }, nil
 }
 
-func (m *MarketService) ListMarkets(ctx context.Context, input ports.ListMarketsInput) (*ports.ListMarketsOutput, error) {
-	if err := domain.ValidateMarketID(input.MarketID); err != nil{
-		return nil, err
-	}
-	
-	market, err := m.repo.GetByID(ctx, input.MarketID)
-	if err != nil {
-		if errors.Is(err, domain.ErrMarketNotFound){
-			return nil, domain.ErrMarketNotFound
-		}
-		return nil, fmt.Errorf("error", err)
-	}
-
-	if market == nil {
-        return nil, domain.ErrMarketNotFound
+func (s *MarketService) ListMarkets(ctx context.Context, input ports.ListMarketsInput) (*ports.ListMarketsOutput, error) {
+    markets, err := s.repo.GetAllActive(ctx)
+    if err != nil {
+        return nil, fmt.Errorf("failed to list markets: %w", err)
     }
 
-	if market.DeletedAt != nil && !market.DeletedAt.IsZero() {
-        return nil, domain.ErrMarketNotFound
-    }
-	return market, nil
+    return &ports.ListMarketsOutput{
+        Markets:       markets,
+        NextPageToken: "", // ← ПОКА ПРОСТО
+    }, nil
 }
-
