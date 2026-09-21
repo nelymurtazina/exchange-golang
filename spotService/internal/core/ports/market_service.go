@@ -5,12 +5,10 @@ import (
 	"test-project/spotService/internal/core/domain"
 )
 
-//Интерфейс для БИЗНЕС-ЛОГИКИ(прото)
-
 type ListMarketsInput struct {
     PageSize  int32
     PageToken string
-    UserRoles string
+    UserRole string
 }
 
 type ListMarketsOutput struct {
@@ -23,7 +21,7 @@ type GetMarketInput struct {
 }
 
 type GetMarketOutput struct {
-    Market *domain.Market
+    Market *domain.Market 
 }
 
 type MarketService interface{

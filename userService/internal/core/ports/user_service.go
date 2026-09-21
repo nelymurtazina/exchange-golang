@@ -23,7 +23,7 @@ type LoginInput struct{
 }
 
 type LoginOutput struct {
-	User domain.User
+	User *domain.User
 	AccessToken  string
 	RefreshToken string
 }

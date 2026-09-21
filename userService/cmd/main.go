@@ -11,7 +11,7 @@ import (
 	"time"
 
 	pb "test-project/api/gen/user"
-	"test-project/shered/interceptor"
+	"test-project/shared/interceptor"
 	"test-project/userService/config"
 	"test-project/userService/internal/adapters/auth"
 	hendler "test-project/userService/internal/adapters/handler/grpc"
@@ -78,7 +78,7 @@ func main() {
 	repo := postgres.NewUserRepository(db)
 
 	jwtManager := auth.NewJWTManager(cfg.JWT.Secret, cfg.JWT.ExpiresHours)
-	passwordManager := auth.NewPasswordManager()
+	passwordManager := auth.NewPasswordManager(cfg.Password.BcryptCost)
 	userService := service.NewUserService(repo, jwtManager, passwordManager)
 	
 	grpcHandler := hendler.NewUserHandler(userService)
@@ -88,8 +88,8 @@ func main() {
 }
 	grpcServer := grpc.NewServer( 
 		grpc.ChainUnaryInterceptor(
-			interceptor.XRequestIDInterceptor(),
 			interceptor.PanicRecoveryInterceptor(logger),
+			interceptor.XRequestIDInterceptor(),
 			interceptor.AuthInterceptor(jwtManager, logger, skipMethods), 
 			interceptor.LoggerInterceptor(logger),
 		),

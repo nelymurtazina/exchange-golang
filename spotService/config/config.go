@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -47,15 +48,15 @@ func LoadConfig() (Config, error){
 	var cfg Config
 	var err error
 
-	cfg.Database.Host = getEnv("DB_HOST")
+	cfg.Database.Host, err = getEnv("DB_HOST")
 	cfg.Database.Port, err = getEnvAsInt("DB_PORT")
 	if err != nil {
 		return cfg, err
 	}
-	cfg.Database.User = getEnv("DB_USER")
-	cfg.Database.Password = getEnv("DB_PASSWORD")
-	cfg.Database.DBName = getEnv("DB_NAME")
-	cfg.Database.SSLMode = getEnv("DB_SSLMODE")
+	cfg.Database.User, err = getEnv("DB_USER")
+	cfg.Database.Password, err = getEnv("DB_PASSWORD")
+	cfg.Database.DBName, err = getEnv("DB_NAME")
+	cfg.Database.SSLMode, err = getEnv("DB_SSLMODE")
 
 	cfg.Database.MaxOpenConns, err = getEnvAsInt("DB_MAX_OPEN_CONNS")
 	if err != nil {
@@ -72,13 +73,13 @@ func LoadConfig() (Config, error){
 	}
 	cfg.Database.ConnMaxLifetime = time.Duration(lifetime) * time.Minute
 
-	cfg.Services.OrderServicePort = getEnv("ORDER_SERVICE_PORT")
-	cfg.Services.InstrumentServicePort = getEnv("INSTRUMENT_SERVICE_PORT")
-	cfg.Services.UserServicePort = getEnv("USER_SERVICE_PORT")
+	cfg.Services.OrderServicePort, err = getEnv("ORDER_SERVICE_PORT")
+	cfg.Services.InstrumentServicePort, err = getEnv("INSTRUMENT_SERVICE_PORT")
+	cfg.Services.UserServicePort, err = getEnv("USER_SERVICE_PORT")
 
 	// Migration
 	cfg.Migration.Enabled = getEnvAsBool("MIGRATION_ENABLED", true)
-	cfg.Migration.Path = getEnv("SPOT_MIGRATION_PATH")
+	cfg.Migration.Path, err = getEnv("SPOT_MIGRATION_PATH")
 
 	if err := cfg.Validate(); err != nil {
 		return cfg, err
@@ -87,12 +88,12 @@ func LoadConfig() (Config, error){
 	return cfg, nil
 }
 
-func getEnv(key string) string {
+func getEnv(key string) (string, error) {
     value, exists := os.LookupEnv(key)
     if !exists || value == "" {
-        return ""  
+        return "", fmt.Errorf("%s is required in .env", key)
     }
-    return value
+    return value, nil
 }
 
 func getEnvAsInt(key string) (int, error) {

@@ -29,18 +29,12 @@ message User{
     string email = 3[
         (validate.rules).string.email = true
     ];
-    string password = 4[
-        (validate.rules).string = {
-            min_len: 8,
-            max_len: 72
-        }
-    ];
-    Role role = 5;
-    google.protobuf.Timestamp created_at = 6;
-    google.protobuf.Timestamp updated_at = 7;
+    Role role = 4;
+    google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 6;
 }
 enum Role {
-    ROLE_UNKNOWN = 0; 
+    ROLE_UNSPECIFIED = 0;
     ROLE_USER = 1;
     ROLE_ADMIN = 2;
     ROLE_GUEST = 3;
@@ -66,9 +60,7 @@ message RegisterRequest {
 } 
 
 message RegisterResponse{
-    string user_id = 1[
-        (validate.rules).string.uuid = true
-    ]; //uuid
+    string user_id = 1; //uuid
     string access_token = 2;
     string refresh_token = 3;
 }
@@ -95,12 +87,8 @@ message LogoutRequest{
             min_len: 1
         }
     ];
-    string user_id = 2 [
-        (validate.rules).string.uuid = true
-    ];
 }
 message LogoutResponse {
-  // Пусто — статус через gRPC codes
 }
 
 message GetUserRequest  {
@@ -123,7 +111,7 @@ message ValidateTokenRequest{
         (validate.rules).string = {
             min_len: 1
         }
-    ];
+    ]; 
 }
 
 message ValidateTokenResponse {

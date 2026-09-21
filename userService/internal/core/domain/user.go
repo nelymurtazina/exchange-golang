@@ -13,42 +13,44 @@ type User struct {
 	UserID   string
 	UserName string
 	Email    string
-	Password string
+	PasswordHash string
 	Role     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt *time.Time
 }
 
-var(
-	ErrUserNotFound = errors.New("Пользователь не найден в БД")
-	ErrUserAlreadyExists = errors.New("Email уже зарегистрирован")
-	ErrInvalidUsername = errors.New("Невалидный username")
-	ErrInvalidEmail = errors.New("Невалидный email")
-	ErrInvalidPassword = errors.New("Пароль пустой или слишком короткий")
-	ErrInvalidUserID = errors.New("Невалидный UUID")
-	ErrUserDisabled = errors.New("Пользователь заблокирован")
-	ErrInvalidCredentials = errors.New("Неверные учётные данные")
-	ErrInvalidToken = errors.New("Невалидный JWT токен")
-	ErrInvalidRole = errors.New("Невалидная роль пользователя")
-	ErrUserDeleted = errors.New("user account has been deleted")
-	ErrUsernameAlreadyExists = errors.New("username already exists")
-	ValidUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
-	RoleUser = "ROLE_USER"
-	RoleAdmin = "ROLE_ADMIN"
-    RoleGuest = "ROLE_GUEST"
+var (
+    ErrUserNotFound          = errors.New("user not found")
+    ErrUserAlreadyExists     = errors.New("email already exists")
+    ErrUsernameAlreadyExists = errors.New("username already exists")
+    ErrInvalidUsername       = errors.New("invalid username")
+    ErrInvalidEmail          = errors.New("invalid email")
+    ErrInvalidPassword       = errors.New("invalid password")
+    ErrInvalidUserID         = errors.New("invalid user id")
+    ErrUserDisabled          = errors.New("user is disabled")
+    ErrInvalidCredentials    = errors.New("invalid credentials")
+    ErrInvalidToken          = errors.New("invalid token")
+    ErrInvalidRole           = errors.New("invalid role")
 )
 
-func NewUser(userID, userName, email, password, role string) (*User, error){
+var ValidUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+
+const (
+    RoleUser  = "user"
+    RoleAdmin = "admin"
+    RoleGuest = "guest"
+)
+
+func NewUser(userID, userName, email, passwordHash, role string, createdAt, updatedAt time.Time,) (*User, error){
 	if err := ValidateUserName(userName); err != nil {
 		return nil, err
 	}
 	if err := ValidateEmail(email); err != nil {
 		return nil, err
 	}
-	if password == "" {
-		return nil, ErrInvalidPassword
-	}
+	if passwordHash == "" {
+        return nil, ErrInvalidPassword
+    }
 	if err := ValidateID(userID); err != nil {
 		return nil, err
 	}
@@ -59,10 +61,10 @@ func NewUser(userID, userName, email, password, role string) (*User, error){
 		UserID: userID,
 		UserName: userName,
 		Email: email,
-		Password: password,
+		PasswordHash : passwordHash,
 		Role: role,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
 	}, nil
 }
 
@@ -100,10 +102,10 @@ func ValidateEmail(email string) error{
 }
 
 func ValidatePassword(password string) error{
-	if password == "" && len(password)<8{
-		return ErrInvalidPassword
-	}
-	return nil
+	if len(password) < 8 || len(password) > 72 {
+        return ErrInvalidPassword
+    }
+	return nil 
 }
 
 func NewUserID() string {

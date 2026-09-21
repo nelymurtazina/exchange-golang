@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"test-project/userService/internal/core/domain"
 	"test-project/userService/internal/core/ports"
+	"time"
 )
 
 type UserService struct {
@@ -15,11 +16,11 @@ type UserService struct {
 }
 
 type JWTManagerInterface interface {
-	GenerateAccessToken(userID string) (string, error)
-	GenerateRefreshToken(userID string) (string, error)
-	ValidateAccessToken(accessToken string) (string, error)
-	ValidateRefreshToken(accessToken string) (string, error)
-	RefreshToken(refreshToken string) (string, error)
+    GenerateAccessToken(userID string, role string) (string, error)          
+    GenerateRefreshToken(userID string, role string) (string, error)        
+    ValidateAccessToken(accessToken string) (string, string, error)           
+    ValidateRefreshToken(accessToken string) (string, string, error)         
+    RefreshToken(refreshToken string) (string, error)
 }
 
 type PasswordManagerInterface interface {
@@ -37,7 +38,7 @@ func NewUserService(repo ports.UserRepository, jwt JWTManagerInterface, passwd P
 
 func (s *UserService) Register(ctx context.Context, input ports.RegisterInput) (*ports.RegisterOutput, error) {
 	if err := domain.ValidateUserName(input.UserName); err != nil {
-		return nil, domain.ErrInvalidUsername
+		return nil, err
 	}
 	if err := domain.ValidateEmail(input.Email); err != nil {
 		return nil, domain.ErrInvalidEmail
@@ -47,19 +48,21 @@ func (s *UserService) Register(ctx context.Context, input ports.RegisterInput) (
 	}
 
 	existingUser, err := s.repo.GetByEmail(ctx, input.Email)
-	if err != nil && err != domain.ErrUserNotFound {
-		return nil, domain.ErrInvalidEmail
-	}
-	if existingUser != nil {
-		return nil, domain.ErrUserAlreadyExists
-	}
+    if err != nil && !errors.Is(err, domain.ErrUserNotFound) {
+        return nil, fmt.Errorf("failed to check user: %w", err) 
+    }
+    if existingUser != nil {
+        return nil, domain.ErrUserAlreadyExists
+    }
 
-	hashedPaswword, err := s.passwd.HashPassword(input.Password)
-	if err != nil {
-		return nil, err
-	}
+	hashedPassword, err := s.passwd.HashPassword(input.Password)
+    if err != nil {
+        return nil, fmt.Errorf("failed to hash password: %w", err)
+    }
 
-	user, err := domain.NewUser(domain.NewUserID(), input.UserName, input.Email, hashedPaswword, domain.RoleUser)
+    now := time.Now()
+
+	user, err := domain.NewUser(domain.NewUserID(), input.UserName, input.Email, hashedPassword, domain.RoleUser, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -68,12 +71,12 @@ func (s *UserService) Register(ctx context.Context, input ports.RegisterInput) (
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	accessToken, err := s.jwt.GenerateAccessToken(user.UserID)
+	accessToken, err := s.jwt.GenerateAccessToken(user.UserID, user.Role)
 	if err != nil {
 		return nil, err
 	}
 
-	refreshToken, err := s.jwt.GenerateRefreshToken(user.UserID)
+	refreshToken, err := s.jwt.GenerateRefreshToken(user.UserID, user.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -102,10 +105,6 @@ func (s *UserService) GetUser(ctx context.Context, userID string) (*domain.User,
         return nil, domain.ErrUserNotFound
     }
 
-    if user.DeletedAt != nil && !user.DeletedAt.IsZero() {
-        return nil, domain.ErrUserNotFound
-    }
-
     return user, nil
 }
 
@@ -113,8 +112,8 @@ func (s *UserService) Login(ctx context.Context, input ports.LoginInput) (*ports
     if err := domain.ValidateEmail(input.Email); err != nil {
         return nil, domain.ErrInvalidEmail
     }
-    if input.Password == "" {
-        return nil, domain.ErrInvalidPassword
+    if err := domain.ValidatePassword(input.Password); err != nil {
+        return nil, err
     }
 
     user, err := s.repo.GetByEmail(ctx, input.Email)
@@ -128,20 +127,16 @@ func (s *UserService) Login(ctx context.Context, input ports.LoginInput) (*ports
         return nil, domain.ErrInvalidCredentials
     }
 
-    if user.DeletedAt != nil && !user.DeletedAt.IsZero() {
+    if !s.passwd.CheckPassword(input.Password, user.PasswordHash) {
         return nil, domain.ErrInvalidCredentials
     }
 
-    if !s.passwd.CheckPassword(input.Password, user.Password) {
-        return nil, domain.ErrInvalidCredentials
-    }
-
-    accessToken, err := s.jwt.GenerateAccessToken(user.UserID)
+    accessToken, err := s.jwt.GenerateAccessToken(user.UserID, user.Role)
     if err != nil {
         return nil, fmt.Errorf("failed to generate access token: %w", err)
     }
 
-    refreshToken, err := s.jwt.GenerateRefreshToken(user.UserID)
+    refreshToken, err := s.jwt.GenerateRefreshToken(user.UserID, user.Role)
     if err != nil {
         return nil, fmt.Errorf("failed to generate refresh token: %w", err)
     }
@@ -157,7 +152,7 @@ func (s *UserService) ValidateToken(ctx context.Context, input ports.ValidateTok
         return nil, domain.ErrInvalidToken
     }
 
-    userID, err := s.jwt.ValidateAccessToken(input.Token)
+    userID, role, err := s.jwt.ValidateAccessToken(input.Token)
     if err != nil {
         return nil, domain.ErrInvalidToken
     }
@@ -178,13 +173,9 @@ func (s *UserService) ValidateToken(ctx context.Context, input ports.ValidateTok
         return nil, domain.ErrInvalidToken
     }
 
-    if user.DeletedAt != nil && !user.DeletedAt.IsZero() {
-        return nil, domain.ErrInvalidToken
-    }
-
     return &ports.ValidateTokenOutput{
         UserID: userID,
-        Role:   user.Role,
+        Role:   role,
     }, nil
 }
 
@@ -193,7 +184,7 @@ func (s *UserService) RefreshToken(ctx context.Context, input ports.RefreshToken
         return nil, domain.ErrInvalidToken
     }
 
-    userID, err := s.jwt.ValidateRefreshToken(input.RefreshToken)
+    userID, role, err := s.jwt.ValidateRefreshToken(input.RefreshToken)
     if err != nil {
         return nil, domain.ErrInvalidToken
     }
@@ -214,16 +205,12 @@ func (s *UserService) RefreshToken(ctx context.Context, input ports.RefreshToken
         return nil, domain.ErrInvalidToken
     }
 
-    if user.DeletedAt != nil && !user.DeletedAt.IsZero() {
-        return nil, domain.ErrInvalidToken
-    }
-
-    newAccessToken, err := s.jwt.GenerateAccessToken(userID)
+    newAccessToken, err := s.jwt.GenerateAccessToken(userID, role)
     if err != nil {
         return nil, err
     }
 
-    newRefreshToken, err := s.jwt.GenerateRefreshToken(userID)
+    newRefreshToken, err := s.jwt.GenerateRefreshToken(userID, user.Role)
     if err != nil {
         return nil, err
     }

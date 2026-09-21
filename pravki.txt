@@ -266,4 +266,222 @@ SpotInstrumentService — это микросервис, который упра
 Фильтрацию рынков по статусу (активные/неактивные/удалённые)
 
 ports/market_repository.go — Интерфейс для БД
-ports/market_service.go — Интерфейс для БИЗНЕС-ЛОГИКИ
+ports/market_service.go — Интерфейс для БИЗНЕС-ЛОГИКИ\
+
+
+
+
+
+
+
+
+
+правки 16.09
+message ListMarketsRequest {
+  // Количество элементов на одну страницу. на сервере задают дефолтное значение (например, 20), если клиент передал 0.
+  int32 page_size = 1; 
+  // Токен для получения следующей страницы.
+  // Для первой страницы передается пустая строка.
+  string page_token = 2;
+  string user_roles = 3; 
+} +
+
+string password = 4[
+        (validate.rules).string = {
+            min_len: 8,
+            max_len: 72
+        } //смотреть, чтобы места хватило при валидации 
+    ];
+
+string user_roles = 3; - удалить поле +
+------------------------------------------------
+роли пользователя извлекаются из jwt-токена!!!?????
+логика: наполняем бд ролями. 
+мокаю роли в логике. 
+------------------------------------------------
+
+-message User{
+	string password = 4[
+        (validate.rules).string = {
+            min_len: 8,
+            max_len: 72
+        }
+    ];
+}
+нельзя использовать в DTO  ?!?!?!?
+может содержатся пассворд хэш , для ответа клиенту, не должны использовать открытый пароль 
+при просмотре пользователя не должна показывать пароль!
+-----------------------------------------------------
+
+- для спорт сделать валидацию в прото spot +
+
+message LogoutRequest{
+    string refresh_token = 1[
+        (validate.rules).string = {
+            min_len: 1
+        }
+    ];
+    string user_id = 2 [
+        (validate.rules).string.uuid = true
+    ]; убрать +
+}
+-!-!-!----------------!!!!-----------------!!!!!-----
+message ValidateTokenRequest{
+    string access_token = 1 [
+        (validate.rules).string = {
+            min_len: 1
+        }
+    ]; //используем интерсептор 
+} - лишняя нагрузка 
+//убрать удаление deleted_at либо добавить логику!
+-!-!-!----------------!!!!-----------------!!!!!-----
+
+
+в команд/мани точно не указываем напрямую цену!?!+
+
+
+
+rpc ListMarkets(ListMarketsRequest) returns (ListMarketsResponse); перегенерировать из-за "S"+
+
+
+ответы в прото не валидировать+
+нейминг+
+
+enum Role {
+    ROLE_UNKNOWN = 0; //изменит неймиг как в документации +
+    ROLE_USER = 1;
+    ROLE_ADMIN = 2;
+    ROLE_GUEST = 3;
+}
+
+
+string market_id = 1; //паттерн для id педать формат +
+
+shered
+прочитать про grpc отладчики 
+
+loggerInterseptor +
+		} else 
+			logger.Info"gRPC request completed", //серьезная нагрузка. Успешные запросы лучше для прометеус. В логи только ошибка и предупреждения, если логи всех запросов - то это на уровне дебаг
+
+auth
+if err != nil 
+					logger.Warn("auth failed",
+				zap.String("request_id", GetRequestID(ctx)),
+				zap.String("method", info.FullMethod),
+			)
+			//прологировать ошибку + zap.error
+			return nil, status.Errorf(codes.Unauthenticated, "invalid token") //логирование ошибки на уровне дебак, а клиенту на уровне анаунтефикейтед
+		
+
+		ctx = context.WithValue(ctx, userIDKey{}, userID)
+
+		return handler(ctx, req) +
+---
+
+	var user domain.User
+	var deletedAt sql.NullTime 
+	err := row.Scan(
+		&user.UserID,
+		&user.UserName,
+		&user.Email,
+		&user.Password,
+		&user.Role,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&deletedAt, // 7 полей, 8 полей передаем +
+	)
+
+
+
+-----
+func ValidatePassword(password string) error{
+	if password == "" && len(password)>8{
+		return ErrInvalidPassword
+	}
+	return nil 
+//useService есть проверка пароля, переиспользовать 
+} 
+
+
+package postgres
++
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"test-project/userService/internal/core/domain"
+	"test-project/userService/internal/core/ports"
+	"time"
+
+	"github.com/lib/pq" //использовать нативный ошибки pgx либо уникальный errors пакет с ошибками 
+) +
+
+
+func getEnv(key string) string {
+    value, exists := os.LookupEnv(key)
+    if !exists || value == "" {
+        return ""  
+    }
+    return value
+} +
+// возвращать 0, сделать более гибким, дать обработать ошибку 
+
+
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12) //вынести в конфиг
+
+-никакого пароля 
+
+- newUser вызывает time.Now доменная область должна быть очень чистой, лучше передать создание и обновление как аргумент из слоя сервайс, чтобы домэин не зависил от системного времени(Роме и МНЕ будет проще теснировать)
+в портах метед регитрации использует .. 
+
+
+
+спортсервис
+commonv1 "test-project/api/gen/common" //кринж Нэля
+в миграциях 
+ price JSONB NOT NULL, 
+ pricecount 
+
+храниц цену как varchar или priceCurent или нумрик
+
+
+ for rows.Next() 
+        //должна вызывать ошибку. Если во время иттерации произойдет ошибка, то я верну не полный спиоск рынка, нужно добавить обработку ошибки. если не равна 
+        market, err := r.scanMarketRows(rows)
+
+		  for rows.Next()  //должна вызывать ошибку. Если во время иттерации произойдет ошибка, то я верну не полный спиоск рынка, нужно добавить обработку ошибки. если не равна 
+
+        market, err := r.scanMarketRows(rows)
+
+
+
+в маин проверить ДНС, написать корректную unaryReseptor
+проверить отсутсвие дубликатов при создании рынков 
+
+что вернется с dataBase Error. Проверить, если я сощдам существующий макет, хочу норм ошибку, а не просто dataBaseError
++ валидейтПрайс - 
+if price.Amount.Units <= 0 
+        return ErrInvalidPrice
+
+
+--              SET name = $1, base_asset = $2, quote_asset = $3, enabled = $4, price = $5, updated_at = NOW()
+я игнорирудю поле update, а в домаин Маркет есть - это ассинхрон.
+нужно передавать маркетUpdate вместо null
+
+возвращать слайс значений, а не слайс указателей. 
+в getMarket проверяжю на nil
+блок точно не нужен с проверкой маркета
+
+в main использовать zap логгер.
+пересмотреть имена и константы.
+копировать и исправлять нейминг. 
+
+
+type GetMarketOutput struct {
+    Market *domain.Market 
+
+    //у меня же есть пагинация, должна передать параметр из лимит.
+    //соблюдай пагинацию!
+}

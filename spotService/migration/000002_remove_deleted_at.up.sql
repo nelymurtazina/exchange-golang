@@ -1,0 +1,1 @@
+ALTER TABLE markets DROP COLUMN IF EXISTS deleted_at;

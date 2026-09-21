@@ -11,9 +11,9 @@ import (
     "time"
 
     pb "test-project/api/gen/spot"
-    "test-project/shered/interceptor"
+    "test-project/shared/interceptor"
     "test-project/spotService/config"
-    handler "test-project/spotService/internal/adapters/handler/grpc"  // ← ИСПРАВЛЕНО!
+    handler "test-project/spotService/internal/adapters/handler/grpc" 
     "test-project/spotService/internal/adapters/repository/postgres"
     "test-project/spotService/internal/core/service"
 
@@ -74,20 +74,16 @@ func main() {
         logger.Info("Migrations applied successfully")
     }
 
-    // 1. РЕПОЗИТОРИЙ
     repo := postgres.NewMarketRepository(db)
 
-    // 2. БИЗНЕС-ЛОГИКА
-    marketService := service.NewMarketService(repo)  // ← ИСПРАВЛЕНО!
+    marketService := service.NewMarketService(repo)  
 
-    // 3. gRPC АДАПТЕР
-    grpcHandler := handler.NewMarketHandler(marketService)  // ← ИСПРАВЛЕНО!
+    grpcHandler := handler.NewMarketHandler(marketService)  
 
-    // 4. gRPC СЕРВЕР
     grpcServer := grpc.NewServer(
         grpc.ChainUnaryInterceptor(
-            interceptor.XRequestIDInterceptor(),
             interceptor.PanicRecoveryInterceptor(logger),
+            interceptor.XRequestIDInterceptor(),
             interceptor.LoggerInterceptor(logger),
         ),
         grpc.ChainStreamInterceptor(
@@ -97,11 +93,9 @@ func main() {
         ),
     )
 
-    // 5. РЕГИСТРАЦИЯ (ИСПРАВЛЕНО!)
     pb.RegisterSpotInstrumentServiceServer(grpcServer, grpcHandler)
     reflection.Register(grpcServer)
 
-    // 6. ЗАПУСК (ИСПРАВЛЕНО!)
     lis, err := net.Listen("tcp", cfg.Services.InstrumentServicePort)
     if err != nil {
         logger.Fatal("failed to listen", zap.Error(err))
@@ -111,7 +105,7 @@ func main() {
     signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
     go func() {
-        logger.Info("SpotService started", zap.String("address", cfg.Services.InstrumentServicePort))  // ← ИСПРАВЛЕНО!
+        logger.Info("SpotService started", zap.String("address", cfg.Services.InstrumentServicePort)) 
         if err := grpcServer.Serve(lis); err != nil {
             logger.Error("failed to serve", zap.Error(err))
             select {

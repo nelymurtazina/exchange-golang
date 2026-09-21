@@ -4,10 +4,9 @@ CREATE TABLE IF NOT EXISTS markets (
     base_asset VARCHAR(50) NOT NULL,
     quote_asset VARCHAR(50) NOT NULL,
     enabled BOOLEAN DEFAULT TRUE,
-    price JSONB NOT NULL,
+    price JSONB NOT NULL, 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_markets_enabled ON markets(enabled) WHERE deleted_at IS NULL;

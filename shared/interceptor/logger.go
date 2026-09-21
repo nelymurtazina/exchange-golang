@@ -21,6 +21,7 @@ func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 		
 		logger.Debug("gRPC request started",
 			zap.String("request_id", requestID),
+			zap.String("method", info.FullMethod),
 		)
 
 		resp, err := handler(ctx, req)
@@ -36,11 +37,12 @@ func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 				zap.Error(err),
 			)
 		} else {
-			logger.Info("gRPC request completed",
-				zap.String("request_id", requestID),
-				zap.Duration("duration", duration),
-				zap.String("status_code", code),
-			)
+			logger.Debug("gRPC request completed",
+                zap.String("request_id", requestID),
+                zap.String("method", info.FullMethod),
+                zap.Duration("duration", duration),
+                zap.String("status_code", code),
+            )
 		}
 		return resp, err
 	}
@@ -75,11 +77,12 @@ func LoggerStreamInterceptor(logger *zap.Logger) grpc.StreamServerInterceptor {
 				zap.Error(err),
 			)
 		} else {
-			logger.Info("gRPC stream completed",
-				zap.String("request_id", requestID),
-				zap.Duration("duration", duration),
-				zap.String("status_code", code),
-			)
+			logger.Debug("gRPC stream completed", 
+                zap.String("request_id", requestID),
+                zap.String("method", info.FullMethod),
+                zap.Duration("duration", duration),
+                zap.String("status_code", code),
+            )
 		}
 
 		return err
