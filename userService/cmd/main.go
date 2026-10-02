@@ -13,9 +13,9 @@ import (
 	pb "test-project/api/gen/user"
 	"test-project/shared/interceptor"
 	"test-project/userService/config"
-	"test-project/userService/internal/adapters/auth"
-	hendler "test-project/userService/internal/adapters/handler/grpc"
-	"test-project/userService/internal/adapters/repository/postgres"
+	"test-project/userService/internal/adapters/outbound/auth"
+	hendler "test-project/userService/internal/adapters/inbound/grpc"
+	"test-project/userService/internal/adapters/outbound/repository/postgres"
 	"test-project/userService/internal/core/service"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -31,7 +31,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create logger: %v", err)
 	}
-	defer logger.Sync()
+	defer func(){
+		_ = logger.Sync()
+	}()
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -46,7 +48,9 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to connect to database", zap.Error(err))
 	}
-	defer db.Close()
+	defer func(){
+		_ = db.Close()
+	}()
 
 	if cfg.Migration.Enabled {
 		logger.Info("Running migrations...")
@@ -85,13 +89,13 @@ func main() {
 	skipMethods := []string{
 		"/user.v1.UserService/Register",  
 		"/user.v1.UserService/Login",    
-}
+	}
 	grpcServer := grpc.NewServer( 
 		grpc.ChainUnaryInterceptor(
 			interceptor.PanicRecoveryInterceptor(logger),
 			interceptor.XRequestIDInterceptor(),
-			interceptor.AuthInterceptor(jwtManager, logger, skipMethods), 
 			interceptor.LoggerInterceptor(logger),
+			interceptor.AuthInterceptor(jwtManager, logger, skipMethods), 
 		),
 		grpc.ChainStreamInterceptor(
 			interceptor.PanicRecoveryStreamInterceptor(logger),

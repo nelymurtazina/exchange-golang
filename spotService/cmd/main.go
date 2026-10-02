@@ -1,28 +1,32 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "log"
-    "net"
-    "os"
-    "os/signal"
-    "syscall"
-    "time"
+	"context"
+	"fmt"
+	"log"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-    pb "test-project/api/gen/spot"
-    "test-project/shared/interceptor"
-    "test-project/spotService/config"
-    handler "test-project/spotService/internal/adapters/handler/grpc" 
-    "test-project/spotService/internal/adapters/repository/postgres"
-    "test-project/spotService/internal/core/service"
+	pb "test-project/api/gen/spot"
+	"test-project/shared/interceptor"
+	"test-project/spotService/config"
+	handler "test-project/spotService/internal/adapters/inbound/grpc"
+	"test-project/spotService/internal/adapters/outbound/auth"
+	"test-project/spotService/internal/adapters/outbound/repository/postgres"
+	"test-project/spotService/internal/core/service"
 
-    "github.com/golang-migrate/migrate/v4"
-    _ "github.com/golang-migrate/migrate/v4/database/postgres"
-    _ "github.com/golang-migrate/migrate/v4/source/file"
-    "go.uber.org/zap"
-    "google.golang.org/grpc"
-    "google.golang.org/grpc/reflection"
+	redisAdapter "test-project/spotService/internal/adapters/outbound/redis"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -30,8 +34,9 @@ func main() {
     if err != nil {
         log.Fatalf("failed to create logger: %v", err)
     }
-    defer logger.Sync()
-
+    defer func(){
+        _ = logger.Sync()
+    }()
     cfg, err := config.LoadConfig()
     if err != nil {
         log.Fatalf("failed to load config: %v", err)
@@ -45,7 +50,7 @@ func main() {
     if err != nil {
         logger.Fatal("failed to connect to database", zap.Error(err))
     }
-    defer db.Close()
+    defer func() { _ = db.Close() }()
 
     if cfg.Migration.Enabled {
         logger.Info("Running migrations...")
@@ -75,9 +80,15 @@ func main() {
     }
 
     repo := postgres.NewMarketRepository(db)
-
-    marketService := service.NewMarketService(repo)  
-
+    rdb := redis.NewClient(&redis.Options{
+        Addr: fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+    })
+    marketCache := redisAdapter.NewMarketCache(rdb)
+    jwtValidator := auth.NewTokenValidator(cfg.JWT.Secret)
+    marketService := service.NewMarketService(repo, marketCache)  
+    skipMethods := []string{
+		"/spot.SpotInstrumentService/GetAllActive",  
+	}
     grpcHandler := handler.NewMarketHandler(marketService)  
 
     grpcServer := grpc.NewServer(
@@ -85,11 +96,13 @@ func main() {
             interceptor.PanicRecoveryInterceptor(logger),
             interceptor.XRequestIDInterceptor(),
             interceptor.LoggerInterceptor(logger),
+            interceptor.AuthInterceptor(jwtValidator, logger, skipMethods), 
         ),
         grpc.ChainStreamInterceptor(
             interceptor.PanicRecoveryStreamInterceptor(logger),
             interceptor.XRequestIDStreamInterceptor(),
             interceptor.LoggerStreamInterceptor(logger),
+            interceptor.AuthStreamInterceptor(jwtValidator, logger, skipMethods),
         ),
     )
 

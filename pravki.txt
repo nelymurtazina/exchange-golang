@@ -485,3 +485,301 @@ type GetMarketOutput struct {
     //у меня же есть пагинация, должна передать параметр из лимит.
     //соблюдай пагинацию!
 }
+
+
+
+
+
+
+
+
+
+
+
+message GetUserRequest  {
+    
+    //getCurrentUser - если мы хоим смотреть пользователя, то урезаем, логику 
+    //если админ смотрит профиль, то для него должен быть метод в прото, для просмотра профиля пользователя, но с норм полями(не отдам конфу )
+    //можно также для просто профиля 
+    //берем из токена 
+    string user_id = 1[
+        (validate.rules).string.uuid = true
+    ];
+}
+
+
+
+ПРАВКИ
+24.09
+1. message GetUserRequest  +
+    //getCurrentUser - если мы хоим смотреть пользователя
+    //если админ смотрит профиль, то для него должен быть метод в прото, для просмотра профиля пользователя, но с норм полями(не отдам конфу )
+
+    //берем из токена 
+    string user_id = 1[
+        (validate.rules).string.uuid = true
+    ];
+добавить методы не только в прото, но и в логику +
+id пользователи и роль берется исключительно из jwt токена
+
+2. перепроверить другие методы, чтобы было с заглавной буквы в методах после генерации спортСервиса +
+message Market{
+  string market_id = 1[
+      (validate.rules).string = {
+          pattern: "^[A/Z]+-[A/Z]+$"  // btc-usd торговые пары 
+      } //все с заглавной буквы 
+  ];
+}
+"^[A/Z]+-[A/Z]+$"
+3.
+message ListMarketsRequest {
+    int32 page_size = 1 [
+        (validate.rules).int32 = {
+            gte: 1,   //поменяла на 1 + 
+            lte: 100  
+        }
+    ];
+    string page_token = 2; 
+}
++
+в логике должна быть 1. Поменяй логику не на 0, и возвращаем первые 20, а 1 
+
+3.1.
+//поле для disableMarket(отключен или нет)+
+service SpotInstrumentService {
+  rpc ListMarkets(ListMarketsRequest) returns (ListMarketsResponse); 
+  rpc GetMarket(GetMarketRequest) returns (GetMarketResponse); 
+  //добавить ручку отключение маркета. disableMarket - Принимает сам маркет()
+  //логика по пагинации, если отключен, то не показываем
+  rpc DisableMarket(DisableMarketRequest) returns (DisableMarketResponse);
+}+
+
+
+
+4. service UserService{
+    rpc Register(RegisterRequest) returns(RegisterResponse);
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc Logout(LogoutRequest) returns (LogoutResponse);
+    rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+    rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+    // добавить метод updatePassword +
+}
+
+5. паггинация  
+message ListMarketsRequest {
+    int32 page_size = 1 [
+        (validate.rules).int32 = {
+            gte: 1,   //поменяла на 1 + 
+            lte: 100  
+        }
+    ];
+    string page_token = 2;  //на бэке шефруем и представляем 
+}
+
+...дальше по UserService и спот+
+в спот disable добавить +
+у пользователя пока норм +
+
+------------------------------------------
+для себя
+------------------------------------------
+//всегда знать, что он не отключен , смотрю на уровень логирования и пишу логерВарн 
+			//(может быть отдельный файл с разрешенными типами логами)
+			logger.Debug("auth failed",
+				zap.String("request_id", GetRequestID(ctx)),
+				zap.String("method", info.FullMethod),
+				zap.Error(err),  
+			)
+
+2.0
+if err != nil {
+			logger.Warn("auth failed",
+				zap.String("request_id", GetRequestID(ss.Context())),
+				zap.String("method", info.FullMethod),
+				zap.Error(err),
+			)
+			return status.Errorf(codes.Unauthenticated, "invalid token")
+			//теряю ошибку, поменять. Нужно разделять ошибку для клиента и для логгера. Для клиента показываю одну, для себя другую, чтобы понять истинную проблему 
+		}
+-------------------------------------------
+codes.unauthenticated — это константа или статус-код ошибки, который 
+означает, что запрос отклонен из-за отсутствия, недействительности 
+или истечения срока действия данных для авторизации (токена, логина или пароля)
+?????????------------------------------------------
+
+6. skipMap := make(map[string]bool, len(skipMethods))
+сделать не буул стракт(пустую структуру (легче))+
+
+7.//теряю ошибку, поменять. Нужно разделять ошибку для клиента и для логгера. Для клиента показываю одну, для себя другую, чтобы понять истинную проблему +
+ 	if err != nil {
+			logger.Warn("auth failed",
+				zap.String("request_id", GetRequestID(ss.Context())),
+				zap.String("method", info.FullMethod),
+				zap.Error(err),
+			)
+			return status.Errorf(codes.Unauthenticated, "invalid token")
+			//теряю ошибку, поменять. Нужно разделять ошибку для клиента и для логгера. Для клиента показываю одну, для себя другую, чтобы понять истинную проблему 
+		}
+-------------------------------------------------------
+надо ли в обработке использовать все реализации?
+1. codes.Unavailable — сервер перегружен или упала база данных.
+2. codes.Unknown — произошла ошибка, которую ваш код вообще не ожидал (например, паника).
+3. codes.DataLoss — файлы на диске или данные в базе повредились.
+--------------------------------------------------------
+---------------Интересное ИНФО--------------------
+type requestIDKey struct{}
+func XRequestIDInterceptor() grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (interface{}, error) {
+		requestID := getOrGenerateRequestID(ctx)
+		ctx = context.WithValue(ctx, requestIDKey{}, requestID)
+		return handler(ctx, req)
+	}
+}
+
+//если в будущем(мало ли пользователь самостоятельно обратится в поддержку (разобраться с проблемой и скинет свой ID, нам нужно понимать, как с этим работать(обработать, проверить, что это не мошенник нам подсылает данные и выполнить действие)).
+ возвращала xreqestID для поддержки(не делаю, но просто должна знать"!))
+...
+---------------Интересное ИНФО--------------------
+----------------------------------------------------------------------
+
+--------------------------------------------
+сделать так ВЕЗДЕ +
+error 
+		requestID := getOrGenerateRequestID(ss.Context())
+		//может находится за прокси. Нужно валидировать или синтезировать 
+		//если Id предоставил клиент, то нужно его провермть
+		//uuid парс строго UUID, проверка, что заголовок не сломан 
+		ctx := context.WithValue(ss.Context(), requestIDKey{}, requestID)
+
+		wrappedStream := NewWrappedServerStream(ss, ctx)
++
+
+//подгрузить линтеры - пройдется по коду и покажет ошибки golangci/lint+ 
+выполнила проверку, все гуд 
+
+
+по папкам перенести inbound, outbound +
+ userService/
+├── cmd/
+│   └── main.go                         # Composition Root (точка сборки)
+├── internal/
+│   ├── config/
+│   │   └── config.go                   # Конфигурация (скрыта от внешних)
+│   │
+│   ├── core/                           # ЯДРО СИСТЕМЫ (без внешних зависимостей)
+│   │   ├── domain/                     # Чистый домен
+│   │   │   ├── user.go                 # Сущность User
+│   │   │   ├── errors.go              # Доменные ошибки
+│   │   │   └── value_objects.go       # Value Objects (Email, Password)
+│   │   │
+│   │   ├── ports/                      # ИНТЕРФЕЙСЫ (контракты)
+│   │   │   ├── inbound/               # Что сервис ПРЕДОСТАВЛЯЕТ миру
+│   │   │   │   └── user_service.go    # Use Cases интерфейсы
+│   │   │   │
+│   │   │   └── outbound/              # Что сервис ТРЕБУЕТ от мира
+│   │   │       ├── user_repository.go
+│   │   │       ├── jwt_manager.go      # ← ПЕРЕНЕСТИ СЮДА
+│   │   │       └── password_manager.go # ← ПЕРЕНЕСТИ СЮДА
+│   │   │
+│   │   └── application/               # APPLICATION LAYER (Use Cases)
+│   │       └── user_service.go        # Реализация бизнес-сценариев
+│   │
+│   └── adapters/                       # АДАПТЕРЫ (мосты между ядром и внешним миром)
+│       ├── inbound/                    # ВХОДЯЩИЕ адаптеры (как к нам обращаются)
+│       │   └── grpc/
+│       │       ├── handler.go         # gRPC handler
+│       │       └── converter.go       # Преобразование proto <-> domain
+│       │
+│       └── outbound/                   # ИСХОДЯЩИЕ адаптеры (что мы используем)
+│           ├── postgres/
+│           │   ├── connection.go
+│           │   └── user_repository.go # Реализует ports.outbound.UserRepository
+│           │
+│           └── auth/
+│               ├── jwt_manager.go     # Реализует ports.outbound.JWTManager
+│               └── password_manager.go # Реализует ports.outbound.PasswordManager
+│
+├── migrations/
+│   ├── 000001_init_schema.up.sql
+│   └── 000001_init_schema.down.sql
+│
+├── .env.example
+├── Dockerfile
+├── Makefile
+└── go.mod
+
+7. посмотретьв  спорт, что я передаю (некоторые поля не те)
+jwtValidator := auth.NewTokenValidator(cfg.JWT.Secret) +
+
+marketrepositoriy - пагинация на бд (изменить sql запрос), изменить интрефейс.
+курсорную пагинацию (по PageToken).+
+
++ main в спорт добавить интерсептор авторизации +
+
++ утечка абстракций в маретереопозиторий и марткет... 
+возвращаю чистую доменную ошибку domain.ErrMarketNotFound
+
+вернулся ли рынок принимаем релшение на уровне хендлера. 
++ рассинхрон между хендлером и сервисом 
+portsInbound.GetMarketInput
+
+если гостям нельзя видеть рынки, то поработать над логикой и 
+Внутри бизнес-логики (GetMarketByID и GetAllActive) добавила проверку роли пользователя через контекст запроса: if role == domain.RoleGuest
+
+маркет репоситорий scanMArket JSONB из байт в unmarshal + getMarket блок проверки ERrorIs - он не проверяет (поле не работает) 
+
+
+-------------вопросы-------------------------
+1. у нас точно такой порядок? может мы сначала будем передавать XRequestIDInterceptor, 
+если в нем происходит критический сбой, то PanicRecoveryInterceptor (стоящий вторым) перехватит эту панику, превратит её в gRPC-ошибку и клиент получит ответ. 
+а в моем случае обрывается и все
+
+grpcServer := grpc.NewServer(
+        grpc.ChainUnaryInterceptor(
+            interceptor.PanicRecoveryInterceptor(logger),
+            interceptor.XRequestIDInterceptor(),
+            interceptor.LoggerInterceptor(logger),
+            interceptor.AuthInterceptor(jwtValidator, logger, skipMethods), 
+        ),
+        grpc.ChainStreamInterceptor(
+            interceptor.PanicRecoveryStreamInterceptor(logger),
+            interceptor.XRequestIDStreamInterceptor(),
+            interceptor.LoggerStreamInterceptor(logger),
+            interceptor.AuthStreamInterceptor(jwtValidator, logger, skipMethods),
+        ),
+    )
+---------------------------------------------
+
+
+пометки Ромы
+Реализовать сканирование JSONB через []byte + json.Unmarshal в market_repository.go (методы scanMarket и scanMarketRows).
+Переписать пагинацию: добавить LIMIT/OFFSET (или курсор) в SQL-запрос репозитория, убрав загрузку всех записей в память в market_service.go.
+Добавить interceptor.AuthInterceptor в цепочку grpc.ChainUnaryInterceptor в cmd/main.go.
+Исправить синтаксическую ошибку (запятую) в CREATE TABLE и убрать несуществующие индексы deleted_at в миграции 000001. Удалить файл миграции 000002.
+Добавить проверку !market.Enabled в service.GetMarket и возврат domain.ErrMarketDisabled, чтобы логика хендлера работала корректно.
+Исправить ValidateMarketID, разрешив использование дефиса (например, ^[A-Z0-9]+-[A-Z0-9]+$).
+Удалить дублирующийся вызов regexp.MatchString в ValidateAsset.
+Добавить db.SetConnMaxIdleTime(15 * time.Minute) в connection.go.
+Удалить проверку UserServicePort из config.go.
+
+
+Добавить REDIS!!! 
+а также 
+объясни пожалуйста все с нуля.
+маркет репозиторий scanMarket JSONB из байт в unmarshal» ➔ ВЫПОЛНЕНО 
+• Что сделали: Вы выяснили, что в вашей структуре domain.Market составной объект цены Price (структура Money) сохраняется в Postgres как JSONB. Вы переписали метод scanMarketRows, чтобы он считывал эту колонку как сырые байты []byte, а затем распаковывал их прямо в поле через json.Unmarshal(jsonbBytes, &market.Price).
+
+я не знаю, что такое JSONB, unmarshal
+
+
+
+
+
+
+

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"test-project/shared/interceptor"
 	"test-project/spotService/internal/core/domain"
-	"test-project/spotService/internal/core/ports"
+	"test-project/spotService/internal/core/ports/inbound"
 
 	commonv1 "test-project/api/gen/common"
 	pb "test-project/api/gen/spot"
@@ -59,28 +59,35 @@ func (h *MarketHandler) ListMarkets(ctx context.Context, req *pb.ListMarketsRequ
 }
 
 func (h *MarketHandler) GetMarket(ctx context.Context, req *pb.GetMarketRequest) (*pb.GetMarketResponse, error) {
-    input := ports.GetMarketInput{
-        MarketID: req.MarketId,
-    }
+	input := ports.GetMarketInput{
+		MarketID: req.MarketId,
+	}
 
-    output, err := h.service.GetMarket(ctx, input)
-    if err != nil {
-        switch {
-        case errors.Is(err, domain.ErrInvalidMarketID):
-            return nil, status.Error(codes.InvalidArgument, err.Error())
-        case errors.Is(err, domain.ErrMarketNotFound):
-            return nil, status.Error(codes.NotFound, err.Error())
-        case errors.Is(err, domain.ErrMarketDisabled):
-            return nil, status.Error(codes.NotFound, "market not found or inactive")
-        default:
-            return nil, status.Error(codes.Internal, "internal error")
-        }
-    }
+	output, err := h.service.GetMarketByID(ctx, input)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidMarketID):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+            
+		case errors.Is(err, domain.ErrMarketNotFound):
+			return nil, status.Errorf(codes.NotFound, "market with id %s not found", req.MarketId)
+            
+		case errors.Is(err, domain.ErrMarketDisabled):
+			return nil, status.Error(codes.NotFound, "market is disabled")
+            
+		case errors.Is(err, domain.ErrPermissionDenied):
+			return nil, status.Errorf(codes.PermissionDenied, "guests are not allowed to view markets")
+            
+		default:
+			return nil, status.Errorf(codes.Internal, "internal server error: %v", err)
+		}
+	}
 
-    return &pb.GetMarketResponse{
-        Market: toProtoMarket(output.Market),
-    }, nil
+	return &pb.GetMarketResponse{
+		Market: toProtoMarket(output.Market),
+	}, nil
 }
+
 
 func toProtoMarket(m *domain.Market) *pb.Market {
     if m == nil {
@@ -106,18 +113,6 @@ func toProtoMoney(m domain.Money) *commonv1.Money {
             Units: m.Units,
             Nanos: m.Nanos,
         },
-        CurrencyCode: m.CurrencyCode,
-    }
-}
-
-// pb.Money -> domain.Money  ОНО?
-func fromProtoMoney(m *commonv1.Money) domain.Money {
-    if m == nil || m.Amount == nil {
-        return domain.Money{}
-    }
-    return domain.Money{
-        Units:        m.Amount.Units,
-        Nanos:        m.Amount.Nanos,
         CurrencyCode: m.CurrencyCode,
     }
 }

@@ -19,9 +19,9 @@ type userIDKey struct{}
 type userRoleKey struct{}
 
 func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []string) grpc.UnaryServerInterceptor {
-	skipMap := make(map[string]bool, len(skipMethods))
+	skipMap := make(map[string]struct{}, len(skipMethods))
 	for _, m := range skipMethods {
-		skipMap[m] = true
+		skipMap[m] = struct{}{}
 	}
 
 	return func(
@@ -30,18 +30,25 @@ func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []s
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
-		if skipMap[info.FullMethod] {
-			return handler(ctx, req)
-		}
+		if _, ok := skipMap[info.FullMethod]; ok {
+        	return handler(ctx, req)
+    	}
 
 		userID, role, err := validateTokenFromContext(ctx, validator)
 		if err != nil {
-			logger.Debug("auth failed",
+			logFields := []zap.Field{
 				zap.String("request_id", GetRequestID(ctx)),
 				zap.String("method", info.FullMethod),
-				zap.Error(err),  
-			)
-			return nil, status.Errorf(codes.Unauthenticated, "invalid token")
+				zap.Error(err),
+			}
+			if status.Code(err) == codes.Unauthenticated {
+				logger.Warn("auth failed: client side issue", logFields...)
+				return nil, status.Errorf(codes.Unauthenticated, "invalid token")
+			}
+
+			// Во всех остальных случаях — это системный сбой на нашей стороне
+			logger.Error("auth failed: internal system error", logFields...)
+			return nil, status.Errorf(codes.Unauthenticated, "internal authentication error")
 		}
 
 		ctx = context.WithValue(ctx, userIDKey{}, userID)
@@ -52,9 +59,9 @@ func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []s
 }
 
 func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []string) grpc.StreamServerInterceptor {
-	skipMap := make(map[string]bool, len(skipMethods))
+	skipMap := make(map[string]struct{}, len(skipMethods))
 	for _, m := range skipMethods {
-		skipMap[m] = true
+		skipMap[m] = struct{}{}
 	}
 
 	return func(
@@ -63,19 +70,26 @@ func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMetho
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) error {
-		if skipMap[info.FullMethod] {
-			return handler(srv, ss)
-		}
+		if _, ok := skipMap[info.FullMethod]; ok {
+       		return handler(srv, ss)
+    	}
 
 		userID, role, err := validateTokenFromContext(ss.Context(), validator)
 		
 		if err != nil {
-			logger.Warn("auth failed",
+			logFields := []zap.Field{
 				zap.String("request_id", GetRequestID(ss.Context())),
 				zap.String("method", info.FullMethod),
 				zap.Error(err),
-			)
-			return status.Errorf(codes.Unauthenticated, "invalid token")
+			}
+
+			if status.Code(err) == codes.Unauthenticated {
+				logger.Warn("auth failed: client side issue", logFields...)
+				return status.Errorf(codes.Unauthenticated, "invalid token")
+			}
+
+			logger.Error("auth failed: internal system error", logFields...)
+			return status.Errorf(codes.Unauthenticated, "internal authentication error")
 		}
 		
 		ctx := context.WithValue(ss.Context(), userIDKey{}, userID)

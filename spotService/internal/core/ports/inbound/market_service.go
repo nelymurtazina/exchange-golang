@@ -24,7 +24,9 @@ type GetMarketOutput struct {
     Market *domain.Market 
 }
 
+
 type MarketService interface{
 	ListMarkets(ctx context.Context, input ListMarketsInput) (*ListMarketsOutput, error)
 	GetMarket(ctx context.Context, input GetMarketInput) (*GetMarketOutput, error)
+    GetMarketByID(ctx context.Context, input GetMarketInput) (*GetMarketOutput, error)
 }

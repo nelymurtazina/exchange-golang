@@ -15,6 +15,7 @@ var (
     ErrInvalidAsset        = errors.New("invalid asset name")
     ErrInvalidPrice        = errors.New("invalid price")
 	ErrMarketAlreadyExists = errors.New("market already exists")
+	ErrPermissionDenied = errors.New("you need to log in.")
 	ValidUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
 	assetRegex = regexp.MustCompile(`^[A-Z]+$`)
 	RoleUser = "ROLE_USER"
@@ -93,10 +94,6 @@ func ValidateMarketName(name string) error{
 func ValidateAsset(asset string) error {
     if asset == "" {
         return ErrInvalidAsset
-    }
-    matched, _ := regexp.MatchString(`^[A-Z]+$`, asset)
-    if !matched {
-        return errors.New("asset must be uppercase letters")
     }
 	if !assetRegex.MatchString(asset) {
         return ErrInvalidAsset 

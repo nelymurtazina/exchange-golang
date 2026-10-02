@@ -41,7 +41,8 @@ const (
     RoleGuest = "guest"
 )
 
-func NewUser(userID, userName, email, passwordHash, role string, createdAt, updatedAt time.Time,) (*User, error){
+//подгрузить линтеры 
+func NewUser(userID, userName, email, passwordHash, role string, createdAt, updatedAt time.Time) (*User, error){
 	if err := ValidateUserName(userName); err != nil {
 		return nil, err
 	}

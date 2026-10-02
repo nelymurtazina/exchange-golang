@@ -23,7 +23,6 @@ func XRequestIDInterceptor() grpc.UnaryServerInterceptor {
 	}
 }
 
-
 func XRequestIDStreamInterceptor() grpc.StreamServerInterceptor {
 	return func(
 		srv interface{},
@@ -41,12 +40,16 @@ func XRequestIDStreamInterceptor() grpc.StreamServerInterceptor {
 }
 
 func getOrGenerateRequestID(ctx context.Context) string {
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if ids := md.Get("x-request-id"); len(ids) > 0 && ids[0] != "" {
-			return ids[0]
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		if ids := md.Get("x-request-id"); len(ids) > 0 {
+			clientInboundID := ids[0]
+			if _, err := uuid.Parse(clientInboundID); err == nil {
+				return clientInboundID
+			}
 		}
 	}
-	return uuid.NewString()
+	return uuid.New().String()
 }
 
 //получить req по ID

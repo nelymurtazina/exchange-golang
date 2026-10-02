@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"test-project/userService/internal/core/domain"
-	"test-project/userService/internal/core/ports"
+	"test-project/userService/internal/core/ports/outbound"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn" 
@@ -74,8 +74,9 @@ func (u *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 func (u *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	query := `
 		SELECT user_id, username, email, password, role, created_at, updated_at
-		FROM users WHERE user_id = $1 AND
+		FROM users WHERE user_id = $1 
 	`
+	//когда поменяю контракт изменится логика сервиса 
 	row := u.db.QueryRowContext(ctx, query, id)
 	return u.scanUser(row)
 }
@@ -111,4 +112,25 @@ func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
 	}
 
 	return &user, nil
+}
+
+
+func (r *UserRepository) UpdatePassword(ctx context.Context, userID string, passwordHash string) error{
+	query := `UPDATE users 
+        SET password = $1, updated_at = $2
+        WHERE user_id = $3`
+	now := time.Now()
+	result, err := r.db.ExecContext(ctx, query,passwordHash,now,userID)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("ErrUserNotFound: %w", err)
+	}
+	return nil
 }

@@ -38,5 +38,4 @@ Thumbs.db
 
 # Project specific
 api/gen/
-userService/internal/adapters/handler/
 tmp/

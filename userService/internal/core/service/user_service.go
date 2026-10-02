@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"test-project/userService/internal/core/domain"
-	"test-project/userService/internal/core/ports"
+	ports "test-project/userService/internal/core/ports/outbound"
+    portsInbound "test-project/userService/internal/core/ports/inbound"
 	"time"
 )
 
@@ -28,7 +29,7 @@ type PasswordManagerInterface interface {
 	CheckPassword(password, hash string) bool
 }
 
-func NewUserService(repo ports.UserRepository, jwt JWTManagerInterface, passwd PasswordManagerInterface) ports.UserService {
+func NewUserService(repo ports.UserRepository, jwt JWTManagerInterface, passwd PasswordManagerInterface) portsInbound.UserService {
 	return &UserService{
 		repo:   repo,
 		jwt:    jwt,
@@ -36,7 +37,7 @@ func NewUserService(repo ports.UserRepository, jwt JWTManagerInterface, passwd P
 	}
 }
 
-func (s *UserService) Register(ctx context.Context, input ports.RegisterInput) (*ports.RegisterOutput, error) {
+func (s *UserService) Register(ctx context.Context, input portsInbound.RegisterInput) (*portsInbound.RegisterOutput, error) {
 	if err := domain.ValidateUserName(input.UserName); err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func (s *UserService) Register(ctx context.Context, input ports.RegisterInput) (
 		return nil, err
 	}
 
-	return &ports.RegisterOutput{
+	return &portsInbound.RegisterOutput{
 		User:         user,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -108,7 +109,7 @@ func (s *UserService) GetUser(ctx context.Context, userID string) (*domain.User,
     return user, nil
 }
 
-func (s *UserService) Login(ctx context.Context, input ports.LoginInput) (*ports.LoginOutput, error) {
+func (s *UserService) Login(ctx context.Context, input portsInbound.LoginInput) (*portsInbound.LoginOutput, error) {
     if err := domain.ValidateEmail(input.Email); err != nil {
         return nil, domain.ErrInvalidEmail
     }
@@ -123,9 +124,10 @@ func (s *UserService) Login(ctx context.Context, input ports.LoginInput) (*ports
 
     if user == nil {
         fakeHash := "$2a$12$c0XVyLJxfoQJsv6YLjH1m.39h7J2Jas/BJ..XqBUkonHiYaU6mFOa"
-        s.passwd.CheckPassword(input.Password, fakeHash)
+        _ = s.passwd.CheckPassword(input.Password, fakeHash)
         return nil, domain.ErrInvalidCredentials
     }
+    //можно игнорировать резултаты. 
 
     if !s.passwd.CheckPassword(input.Password, user.PasswordHash) {
         return nil, domain.ErrInvalidCredentials
@@ -141,13 +143,13 @@ func (s *UserService) Login(ctx context.Context, input ports.LoginInput) (*ports
         return nil, fmt.Errorf("failed to generate refresh token: %w", err)
     }
 
-    return &ports.LoginOutput{
+    return &portsInbound.LoginOutput{
         AccessToken:  accessToken,
         RefreshToken: refreshToken,
     }, nil
 }
 
-func (s *UserService) ValidateToken(ctx context.Context, input ports.ValidateTokenInput) (*ports.ValidateTokenOutput, error) {
+func (s *UserService) ValidateToken(ctx context.Context, input portsInbound.ValidateTokenInput) (*portsInbound.ValidateTokenOutput, error) {
     if input.Token == "" {
         return nil, domain.ErrInvalidToken
     }
@@ -173,13 +175,13 @@ func (s *UserService) ValidateToken(ctx context.Context, input ports.ValidateTok
         return nil, domain.ErrInvalidToken
     }
 
-    return &ports.ValidateTokenOutput{
+    return &portsInbound.ValidateTokenOutput{
         UserID: userID,
         Role:   role,
     }, nil
 }
 
-func (s *UserService) RefreshToken(ctx context.Context, input ports.RefreshTokenInput) (*ports.RefreshTokenOutput, error) {
+func (s *UserService) RefreshToken(ctx context.Context, input portsInbound.RefreshTokenInput) (*portsInbound.RefreshTokenOutput, error) {
     if input.RefreshToken == "" {
         return nil, domain.ErrInvalidToken
     }
@@ -215,7 +217,7 @@ func (s *UserService) RefreshToken(ctx context.Context, input ports.RefreshToken
         return nil, err
     }
 
-    return &ports.RefreshTokenOutput{
+    return &portsInbound.RefreshTokenOutput{
         AccessToken:  newAccessToken,
         RefreshToken: newRefreshToken,
     }, nil
@@ -227,4 +229,52 @@ func (s *UserService) Logout(ctx context.Context, userID string) error {
 	}
 
 	return nil
+}
+
+func (s *UserService) ChangePassword(ctx context.Context, input portsInbound.ChangePasswordInput) (*portsInbound.ChangePasswordOutput, error) {
+    if err := domain.ValidateEmail(input.Email); err != nil {
+        return nil, err
+    }
+    if err := domain.ValidatePassword(input.NewPassword); err != nil {
+        return nil, err
+    }
+
+    user, err := s.repo.GetByEmail(ctx, input.Email)
+    if err != nil {
+        if errors.Is(err, domain.ErrUserNotFound) {
+            return nil, domain.ErrInvalidCredentials
+        }
+        return nil, fmt.Errorf("failed to get user: %w", err)
+    }
+
+    if !s.passwd.CheckPassword(input.CurrentPassword, user.PasswordHash) {
+        return nil, domain.ErrInvalidCredentials
+    }
+
+    hashedPassword, err := s.passwd.HashPassword(input.NewPassword)
+    if err != nil {
+        return nil, fmt.Errorf("failed to hash password: %w", err)
+    }
+
+    if err := s.repo.UpdatePassword(ctx, user.UserID, hashedPassword); err != nil {
+        return nil, fmt.Errorf("failed to update password: %w", err)
+    }
+
+    return &portsInbound.ChangePasswordOutput{Success: true}, nil
+}
+
+func (s *UserService) GetProfilePreview(ctx context.Context, input portsInbound.GetProfilePreviewInput) (*portsInbound.GetProfilePreviewOutput, error) {
+    if err := domain.ValidateID(input.UserID); err != nil {
+        return nil, err
+    }
+
+    user, err := s.repo.GetByID(ctx, input.UserID)
+    if err != nil {
+        return nil, err  
+    }
+
+    return &portsInbound.GetProfilePreviewOutput{
+        ID:       user.UserID,
+        Username: user.UserName,
+    }, nil
 }

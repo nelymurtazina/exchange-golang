@@ -13,6 +13,8 @@ service UserService{
     rpc GetUser(GetUserRequest) returns (GetUserResponse);
     rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
     rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+    rpc ChangePassword (ChangePasswordRequest) returns (ChangePasswordResponse); //смена пароля доступна только для авторизованного пользователя
+    rpc GetCurrentUser (GetUserRequest) returns (GetProfilePreviewResponse);
 }
 
 message User{
@@ -60,7 +62,7 @@ message RegisterRequest {
 } 
 
 message RegisterResponse{
-    string user_id = 1; //uuid
+    string user_id = 1; 
     string access_token = 2;
     string refresh_token = 3;
 }
@@ -92,9 +94,7 @@ message LogoutResponse {
 }
 
 message GetUserRequest  {
-    string user_id = 1[
-        (validate.rules).string.uuid = true
-    ];
+    // user_id беру из токена 
 }
 
 message GetUserResponse{
@@ -130,4 +130,36 @@ message RefreshTokenRequest{
 message RefreshTokenResponse{
     string access_token = 1;
     string refresh_token = 2;
+}
+
+message ChangePasswordRequest {
+  string email = 1 [
+        (validate.rules).string.email = true
+    ];
+    string current_password  = 2[
+        (validate.rules).string = {
+            min_len: 8,
+            max_len: 72
+        }
+    ];
+    string new_password = 3[
+        (validate.rules).string = {
+            min_len: 8,
+            max_len: 72
+        }
+    ];
+}
+
+message ChangePasswordResponse {
+    bool success = 1;
+    string message = 2;  
+}
+
+message UserProfilePreview {
+  string id = 1;
+  string username = 2; 
+}
+
+message GetProfilePreviewResponse {
+  UserProfilePreview profile = 1;
 }

@@ -14,13 +14,14 @@ import "validate/validate.proto";
 service SpotInstrumentService {
   rpc ListMarkets(ListMarketsRequest) returns (ListMarketsResponse); 
   rpc GetMarket(GetMarketRequest) returns (GetMarketResponse); 
+  rpc DisableMarket(DisableMarketRequest) returns (DisableMarketResponse);
 }
 
 message Market{
   string market_id = 1[
       (validate.rules).string = {
-          pattern: "^[a-z]+-[a-z]+$"  // btc-usd
-      }
+          pattern: "^[A/Z]+-[A/Z]+$" 
+      } 
   ];
   string name = 2; 
   string base_asset = 3; 
@@ -34,7 +35,7 @@ message Market{
 message ListMarketsRequest {
     int32 page_size = 1 [
         (validate.rules).int32 = {
-            gte: 0,   
+            gte: 1,    
             lte: 100  
         }
     ];
@@ -49,10 +50,23 @@ message ListMarketsResponse {
 message GetMarketRequest {
     string market_id = 1 [
         (validate.rules).string = {
-            pattern: "^[a-z]+-[a-z]+$"  // btc-usd
+            pattern: "^[A/Z]+-[A/Z]+$"  
         }
     ];
 }
 message GetMarketResponse{
+  Market market = 1;
+}
+
+
+message DisableMarketRequest {
+  string market_id = 1[
+      (validate.rules).string = {
+          pattern: "^[A/Z]+-[A/Z]+$" 
+      } 
+  ];
+}
+
+message DisableMarketResponse {
   Market market = 1;
 }

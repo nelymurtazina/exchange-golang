@@ -3,7 +3,9 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	"test-project/userService/config"
+	"test-project/spotService/config"
+	"time"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -19,9 +21,13 @@ func NewConnection(cfg config.DatabaseConfig)(*sql.DB, error){
 	db.SetMaxOpenConns(cfg.MaxOpenConns)
 	db.SetMaxIdleConns(cfg.MaxIdleConns)
 	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	db.SetConnMaxIdleTime(15 * time.Minute) 
 
 	if err := db.Ping(); err != nil {
-		db.Close()
+		closeErr  := db.Close()
+		if closeErr  != nil {
+			return nil, fmt.Errorf("failed to close database connection: %w", err) 
+		}
 		return nil, err
 	}
 	return db, nil

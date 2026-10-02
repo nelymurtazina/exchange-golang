@@ -7,11 +7,12 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+//сделать интерфейс для JWTManager 
+
 type JWTManager struct {
 	secret       string
 	expiresHours int
 }
-
 
 func NewJWTManager(secret string, expiresHours int) *JWTManager {
 	return &JWTManager{
@@ -100,4 +101,5 @@ func (m *JWTManager) RefreshToken(refreshToken string) (string, error) {
         return "", err
     }
     return m.GenerateAccessToken(userID, role)  
+    //сразу менять оба, а не только аксес
 }
