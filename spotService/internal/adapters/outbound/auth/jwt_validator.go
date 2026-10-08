@@ -3,14 +3,14 @@ package auth
 import (
 	"errors"
 	"fmt"
-	outbound "test-project/spotService/internal/core/ports/outbound"
 
+	"test-project/shared/interceptor" 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 type JWTClaims struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role"`
+	UserID string 
+	Role   string 
 	jwt.RegisteredClaims
 }
 
@@ -18,11 +18,11 @@ type TokenValidator struct {
 	secretKey string
 }
 
-func NewTokenValidator(secretKey string) outbound.JWTValidator {
+func NewTokenValidator(secretKey string) interceptor.JWTValidator {
 	return &TokenValidator{secretKey: secretKey}
 }
 
-func (v *TokenValidator) ValidateAccessToken(tokenStr string) (string, string, error) {
+func (v *TokenValidator) ValidateAccessToken(tokenStr string) (map[string]any, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -31,13 +31,16 @@ func (v *TokenValidator) ValidateAccessToken(tokenStr string) (string, string, e
 	})
 
 	if err != nil {
-		return "", "", err 
+		return nil, err 
 	}
 
 	claims, ok := token.Claims.(*JWTClaims)
 	if !ok || !token.Valid {
-		return "", "", errors.New("invalid token claims")
+		return nil, errors.New("invalid token claims")
 	}
 
-	return claims.UserID, claims.Role, nil
+	return map[string]any{
+		"user_id": claims.UserID,
+		"role":    claims.Role,
+	}, nil
 }

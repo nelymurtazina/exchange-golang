@@ -19,9 +19,9 @@ type UserService struct {
 type JWTManagerInterface interface {
     GenerateAccessToken(userID string, role string) (string, error)          
     GenerateRefreshToken(userID string, role string) (string, error)        
-    ValidateAccessToken(accessToken string) (string, string, error)           
+    ValidateAccessToken(accessToken string) (map[string]any, error)          
     ValidateRefreshToken(accessToken string) (string, string, error)         
-    RefreshToken(refreshToken string) (string, error)
+    RefreshToken(refreshToken string) (string, string, error)
 }
 
 type PasswordManagerInterface interface {
@@ -127,7 +127,6 @@ func (s *UserService) Login(ctx context.Context, input portsInbound.LoginInput) 
         _ = s.passwd.CheckPassword(input.Password, fakeHash)
         return nil, domain.ErrInvalidCredentials
     }
-    //можно игнорировать резултаты. 
 
     if !s.passwd.CheckPassword(input.Password, user.PasswordHash) {
         return nil, domain.ErrInvalidCredentials
@@ -154,10 +153,17 @@ func (s *UserService) ValidateToken(ctx context.Context, input portsInbound.Vali
         return nil, domain.ErrInvalidToken
     }
 
-    userID, role, err := s.jwt.ValidateAccessToken(input.Token)
+    claims, err := s.jwt.ValidateAccessToken(input.Token)
     if err != nil {
         return nil, domain.ErrInvalidToken
     }
+
+    userID, ok := claims["user_id"].(string)
+    if !ok {
+        return nil, domain.ErrInvalidToken
+    }
+    
+    role, _ := claims["role"].(string)
 
     if err := domain.ValidateID(userID); err != nil {
         return nil, domain.ErrInvalidUserID
@@ -232,14 +238,14 @@ func (s *UserService) Logout(ctx context.Context, userID string) error {
 }
 
 func (s *UserService) ChangePassword(ctx context.Context, input portsInbound.ChangePasswordInput) (*portsInbound.ChangePasswordOutput, error) {
-    if err := domain.ValidateEmail(input.Email); err != nil {
+    if err := domain.ValidatePassword(input.NewPassword); err != nil {
         return nil, err
     }
     if err := domain.ValidatePassword(input.NewPassword); err != nil {
         return nil, err
     }
 
-    user, err := s.repo.GetByEmail(ctx, input.Email)
+    user, err := s.repo.GetByID(ctx, input.UserID)
     if err != nil {
         if errors.Is(err, domain.ErrUserNotFound) {
             return nil, domain.ErrInvalidCredentials

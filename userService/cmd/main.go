@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -18,7 +17,6 @@ import (
 	"test-project/userService/internal/adapters/outbound/repository/postgres"
 	"test-project/userService/internal/core/service"
 
-	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"go.uber.org/zap"
@@ -48,36 +46,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to connect to database", zap.Error(err))
 	}
-	defer func(){
-		_ = db.Close()
-	}()
-
-	if cfg.Migration.Enabled {
-		logger.Info("Running migrations...")
-
-		dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-			cfg.Database.User,
-			cfg.Database.Password,
-			cfg.Database.Host,
-			cfg.Database.Port,
-			cfg.Database.DBName,
-			cfg.Database.SSLMode,
-		)
-
-		m, err := migrate.New(
-			"file://"+cfg.Migration.Path,
-			dsn,
-		)
-		if err != nil {
-			logger.Fatal("failed to create migrate instance", zap.Error(err))
-		}
-
-		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-			logger.Fatal("failed to apply migrations", zap.Error(err))
-		}
-
-		logger.Info("Migrations applied successfully")
-	}
+	defer db.Close()
 
 	repo := postgres.NewUserRepository(db)
 

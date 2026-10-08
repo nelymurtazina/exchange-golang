@@ -2,36 +2,40 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 
 	"test-project/spotService/internal/core/domain"
 	ports "test-project/spotService/internal/core/ports/outbound"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 )
 
 type MarketRepository struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 
-func NewMarketRepository(db *sql.DB) ports.MarketRepository {
+func NewMarketRepository(db *pgxpool.Pool) ports.MarketRepository {
 	return &MarketRepository{db: db}
 }
 
 func (r *MarketRepository) Create(ctx context.Context, market *domain.Market) error {
+	priceJSON, err := json.Marshal(market.Price)
+    if err != nil {
+        return fmt.Errorf("failed to marshal price to JSON: %w", err)
+    }
 	query := `INSERT INTO markets (market_id, name, base_asset, quote_asset, enabled, price, created_at, updated_at)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err = r.db.Exec(ctx, query,
 		market.MarketID,
 		market.Name,
 		market.BaseAsset,
 		market.QuoteAsset,
 		market.Enabled,
-		market.Price,
+		priceJSON,
 		market.CreatedAt,
 		market.UpdatedAt,
 	)
@@ -40,14 +44,11 @@ func (r *MarketRepository) Create(ctx context.Context, market *domain.Market) er
 
 func (r *MarketRepository) Delete(ctx context.Context, id string) error {
 	query := `UPDATE markets SET updated_at = NOW() WHERE market_id = $1`
-	result, err := r.db.ExecContext(ctx, query, id)
+	result, err := r.db.Exec(ctx, query, id)
 	if err != nil {
 		return err
 	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
+	rows := result.RowsAffected()
 	if rows == 0 {
 		return domain.ErrMarketNotFound
 	}
@@ -57,21 +58,11 @@ func (r *MarketRepository) Delete(ctx context.Context, id string) error {
 func (r *MarketRepository) GetAll(ctx context.Context, limit, offset int) ([]*domain.Market, error) {
 	query := `SELECT market_id, name, base_asset, quote_asset, enabled, price, created_at, updated_at 
     FROM markets LIMIT $1 OFFSET $2`
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
-
-	defer func() {
-		closeErr := rows.Close()
-		if closeErr != nil {
-			if err == nil {
-				err = fmt.Errorf("failed to close rows: %w", closeErr)
-			} else {
-				log.Printf("failed to close rows after error: %v", closeErr)
-			}
-		}
-	}()
+	defer rows.Close()
 
 	var markets []*domain.Market
 	for rows.Next() {
@@ -89,12 +80,12 @@ func (r *MarketRepository) GetAll(ctx context.Context, limit, offset int) ([]*do
 
 func (r *MarketRepository) GetAllActive(ctx context.Context, limit, offset int) ([]*domain.Market, error) {
 	query := `SELECT market_id, name, base_asset, quote_asset, enabled, price, created_at, updated_at
-              FROM markets LIMIT $1 OFFSET $2 WHERE enabled = true`
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+			FROM markets WHERE enabled = true LIMIT $1 OFFSET $2`
+	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
+	defer rows.Close()
 
 	var markets []*domain.Market
 	for rows.Next() {
@@ -113,44 +104,44 @@ func (r *MarketRepository) GetAllActive(ctx context.Context, limit, offset int) 
 func (r *MarketRepository) GetByID(ctx context.Context, id string) (*domain.Market, error) {
 	query := `SELECT market_id, name, base_asset, quote_asset, enabled, price, created_at, updated_at 
               FROM markets WHERE market_id = $1`
-	row := r.db.QueryRowContext(ctx, query, id)
+	row := r.db.QueryRow(ctx, query, id)
 	return r.scanMarket(row)
 }
 
 func (r *MarketRepository) GetActiveByID(ctx context.Context, id string) (*domain.Market, error) {
 	query := `SELECT market_id, name, base_asset, quote_asset, enabled, price, created_at, updated_at
               FROM markets WHERE market_id = $1 AND enabled = true`
-	row := r.db.QueryRowContext(ctx, query, id)
+	row := r.db.QueryRow(ctx, query, id)
 	return r.scanMarket(row)
 }
 
 func (r *MarketRepository) Update(ctx context.Context, market *domain.Market) error {
+	priceJSON, err := json.Marshal(market.Price)
+	if err != nil {
+        return fmt.Errorf("failed to marshal price to JSON: %w", err)
+    }
 	query := `UPDATE markets 
               SET name = $1, base_asset = $2, quote_asset = $3, enabled = $4, price = $5, updated_at = NOW()
               WHERE market_id = $6 `
 
-	result, err := r.db.ExecContext(ctx, query,
+	result, err := r.db.Exec(ctx, query,
 		market.Name,
 		market.BaseAsset,
 		market.QuoteAsset,
 		market.Enabled,
-		market.Price,
+		priceJSON,
 		market.MarketID,
 	)
 	if err != nil {
 		return err
 	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return domain.ErrMarketNotFound
-	}
-	return nil
+	if result.RowsAffected() == 0 {
+        return domain.ErrMarketNotFound
+    }
+    return nil
 }
 
-func (r *MarketRepository) scanMarket(row *sql.Row) (*domain.Market, error) {
+func (r *MarketRepository) scanMarket(row pgx.Row) (*domain.Market, error) {
 	var market domain.Market
 	var priceBytes []byte
 
@@ -161,12 +152,11 @@ func (r *MarketRepository) scanMarket(row *sql.Row) (*domain.Market, error) {
 		&market.QuoteAsset,
 		&market.Enabled,
 		&priceBytes,
-		&market.Price,
 		&market.CreatedAt,
 		&market.UpdatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrMarketNotFound
 		}
 		return nil, err
@@ -179,7 +169,7 @@ func (r *MarketRepository) scanMarket(row *sql.Row) (*domain.Market, error) {
 	return &market, nil
 }
 
-func (r *MarketRepository) scanMarketRows(rows *sql.Rows) (*domain.Market, error) {
+func (r *MarketRepository) scanMarketRows(rows pgx.Rows) (*domain.Market, error) {
 	var market domain.Market
 	var priceBytes []byte
 
@@ -189,7 +179,6 @@ func (r *MarketRepository) scanMarketRows(rows *sql.Rows) (*domain.Market, error
 		&market.BaseAsset,
 		&market.QuoteAsset,
 		&market.Enabled,
-		&market.Price,
 		&priceBytes,
 		&market.CreatedAt,
 		&market.UpdatedAt,
@@ -207,50 +196,45 @@ func (r *MarketRepository) scanMarketRows(rows *sql.Rows) (*domain.Market, error
 }
 
 
-func (r *MarketRepository) GetAllActiveWithCursor(ctx context.Context, limit int, cursor string) (markets []*domain.Market, err error) {
+func (r *MarketRepository) GetAllActiveWithCursor(ctx context.Context, limit int, cursor string) ([]*domain.Market, error) {
 	var query string
-	var rows *sql.Rows
+	var args []interface{}
 
 	if cursor == "" {
+		// Если курсора нет, берем первые limit записей
 		query = `SELECT market_id, name, base_asset, quote_asset, enabled, price, created_at, updated_at 
                  FROM markets 
                  WHERE enabled = true 
                  ORDER BY market_id ASC 
                  LIMIT $1`
-		rows, err = r.db.QueryContext(ctx, query, limit)
+		args = []interface{}{limit}
 	} else {
+		// Если курсор есть, берем записи, которые идут ПОСЛЕ него в алфавитном  порядке
 		query = `SELECT market_id, name, base_asset, quote_asset, enabled, price, created_at, updated_at 
                  FROM markets 
                  WHERE enabled = true AND market_id > $1 
                  ORDER BY market_id ASC 
                  LIMIT $2`
-		rows, err = r.db.QueryContext(ctx, query, cursor, limit)
+		args = []interface{}{cursor, limit}
 	}
 
+	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query markets: %w", err)
 	}
-	defer func() {
-		closeErr := rows.Close()
-		if closeErr != nil {
-			if err == nil {
-				err = fmt.Errorf("failed to close rows: %w", closeErr)
-			} else {
-				log.Printf("failed to close rows after error: %v", closeErr)
-			}
-		}
-	}()
+	defer rows.Close()
 
+	var markets []*domain.Market
 	for rows.Next() {
-		market, scanErr := r.scanMarketRows(rows) 
-		if scanErr != nil {
-			return nil, scanErr
+		market, err := r.scanMarketRows(rows)
+		if err != nil {
+			return nil, err
 		}
 		markets = append(markets, market)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error during rows iteration: %w", err)
 	}
 
 	return markets, nil

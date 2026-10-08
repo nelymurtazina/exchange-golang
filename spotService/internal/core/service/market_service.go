@@ -46,7 +46,7 @@ func (s *MarketService) GetMarketByID(ctx context.Context, input portsInbound.Ge
 	role, ok := interceptor.GetUserRoleFromContext(ctx)
 	if !ok || role == domain.RoleGuest {
 		return nil, domain.ErrPermissionDenied
-	}
+	} // не должен знать (инпут структура как в листмаркет, userRole - извлекаем из контекста и кладем, а в сервисе проверяем. )
 
     cachedMarket, err := s.cache.Get(ctx, input.MarketID)
     if err == nil && cachedMarket != nil {

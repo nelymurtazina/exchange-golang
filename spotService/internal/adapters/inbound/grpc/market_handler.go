@@ -79,7 +79,7 @@ func (h *MarketHandler) GetMarket(ctx context.Context, req *pb.GetMarketRequest)
 			return nil, status.Errorf(codes.PermissionDenied, "guests are not allowed to view markets")
             
 		default:
-			return nil, status.Errorf(codes.Internal, "internal server error: %v", err)
+			return nil, status.Error(codes.Internal, "internal server error")
 		}
 	}
 
@@ -106,7 +106,6 @@ func toProtoMarket(m *domain.Market) *pb.Market {
     }
 }
 
-// domain.Money -> pb.Money ОНО? так мне конвертировать в money?
 func toProtoMoney(m domain.Money) *commonv1.Money {
     return &commonv1.Money{
         Amount: &commonv1.Decimal{

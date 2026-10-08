@@ -51,8 +51,9 @@ type MigrationConfig struct {
 type RedisConfig struct{
 	Host string
 	Port int
-}
-
+	Password string
+	DB int
+} 
 
 func LoadConfig() (Config, error){
 	if err := godotenv.Load(); err != nil{
@@ -198,6 +199,16 @@ func (c Config) Validate() error {
 	if c.Migration.Enabled && c.Migration.Path == "" {
 		return errors.New("MIGRATION_PATH is required when migrations are enabled")
 	}
+	if c.Redis.Host == "" {
+		return errors.New("redis host cannot be empty")
+	}
+	if c.Redis.Port <= 0 || c.Redis.Port > 65535 {
+		return errors.New("redis port must be between 1 and 65535")
+	}
+	if c.Redis.DB < 0 || c.Redis.DB > 15 {
+		return errors.New("redis db must be between 0 and 15")
+	}
+
 	return nil
 }
 

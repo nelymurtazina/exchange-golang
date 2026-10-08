@@ -52,7 +52,6 @@ func getOrGenerateRequestID(ctx context.Context) string {
 	return uuid.New().String()
 }
 
-//получить req по ID
 func GetRequestID(ctx context.Context) string {
 	if id, ok := ctx.Value(requestIDKey{}).(string); ok {
 		return id

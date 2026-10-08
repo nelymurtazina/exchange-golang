@@ -783,3 +783,193 @@ grpcServer := grpc.NewServer(
 
 
 
+
+
+05.10
+Для всего протобафа добавить комментарии +
+по примеру.
+
+перегенерировать юзер в прото
+// "свагер" для методов и контрактов. просмотр пользователя 
+
+message ChangePasswordResponse {
+    bool success = 1; //message, а не бул. Если message, то гуд 
+    string message = 2;  
+} +
+
+string refresh_token = 1[
+        (validate.rules).string = {
+            min_len: 20
+        }
+    ];
+реалистичные данные для токенов. +
+Больше 20 символов (валидация токенов) - исправить +
+
+
+спотИнструмент. добавить валидацию на рынки
+  string base_asset = 3; 
+  string quote_asset = 4; 
+добавить валидаци. +
+
+
+--------------------------------------------------------
+type userIDKey struct{}
+type userRoleKey struct{} //быть осторожной. можно вынести в отдельные ключи в auth. Использовать отдельно (это дополнительно)
+//если захочу, то я могу rateLimiter общие ошибки, маппинг, (разделение), редис и постгрес коннекшен - выносим отдельно в шеред  
+
+----------------------------------------------------------
+
+шеред
+auth +
+if status.Code(err) == codes.Unauthenticated {
+				logger.Warn("auth failed: client side issue", logFields...)
+				return nil, status.Errorf(codes.Unauthenticated, "invalid token")
+			}
+
+			// Во всех остальных случаях — это системный сбой на нашей стороне
+			logger.Error("auth failed: internal system error", logFields...)
+			return nil, status.Errorf(codes.Unauthenticated, "internal authentication error")
+разделить на ошибки на валидацию токена аунтефикетед, если самого валидатора то 
+явялется ли ошибка уже от валидатора, если да то антедефикетед, если нет то - интернал +
+
+смешение уровней ответсвенности исправить
+валидатор должен возвращать свой уровень ошибки, а уже интерсептор сам должен обернуть в код интерсептора 
+	if !ok {
+		return "", "" ,status.Errorf(codes.Unauthenticated, "metadata is not provided")
+	}
+
+	authHeader := md.Get("authorization")
+	if len(authHeader) == 0 {
+		return "", "", status.Errorf(codes.Unauthenticated, "authorization token is missing")
+	}
+
+	// "Bearer <token>" — не чувствительный к регистру
+	parts := strings.SplitN(authHeader[0], " ", 2)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		return "","", status.Errorf(codes.Unauthenticated, "invalid authorization header format")
+	}
++
+
+жестко под бизнес контракт, если что-то добавлять, то переписывать придется. минус вайб 
+type JWTValidator interface {
+    ValidateAccessToken(token string) (userID string, role string, err error)
+} // клеймсМапа значение any +
+
+
+main:
+//никто так не пишет. миграции запускаются в процессерном "контейнере" +-
+	if cfg.Migration.Enabled {
+		logger.Info("Running migrations...")
+
+		dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+			cfg.Database.User,
+			cfg.Database.Password,
+			cfg.Database.Host,
+			cfg.Database.Port,
+			cfg.Database.DBName,
+			cfg.Database.SSLMode,
+		)
+
+		m, err := migrate.New(
+			"file://"+cfg.Migration.Path,
+			dsn,
+		)
+		if err != nil {
+			logger.Fatal("failed to create migrate instance", zap.Error(err))
+		}
+
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			logger.Fatal("failed to apply migrations", zap.Error(err))
+		}
+
+		logger.Info("Migrations applied successfully")
+	}
+
+pgx пуул нативный. изменить в repository/postgres. 
+"github.com/jackc/pgx/v5/pgconn" - нативный pgxPool использовать нативно pgx пуул напрямую как в шереде. 
++
+
+
+
+
+//сделать интерфейс для JWTManager в 
++ ( он ранее был реализован)
+type JWTManagerInterface interface {
+    GenerateAccessToken(userID string, role string) (string, error)          
+    GenerateRefreshToken(userID string, role string) (string, error)        
+    ValidateAccessToken(accessToken string) (map[string]any, error)          
+    ValidateRefreshToken(accessToken string) (string, string, error)         
+    RefreshToken(refreshToken string) (string, string, error) 
+}
+
+func (m *JWTManager) RefreshToken(refreshToken string) (string, error) {
+    userID, role, err := m.ValidateRefreshToken(refreshToken) 
+    if err != nil {
+        return "", err
+    }
+    return m.GenerateAccessToken(userID, role)  
+    //сразу менять оба, а не только аксес
+}
++
+
+
+
+
+
+--------------------------
+logout добавить логику: старый токен должен быть добавлен в черный список или удален полностью
+
+func (r *UserRepository) UpdatePassword(ctx context.Context, userID string, passwordHash string) error{
+	query := `UPDATE users 
+        SET password = $1, updated_at = $2
+        WHERE user_id = $3`
+	now := time.Now()
+	result, err := r.db.ExecContext(ctx, query,passwordHash,now,userID)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("ErrUserNotFound: %w", err)
+	} //проверить обертку ошибки, точно ли я должна возвращать так ошибку? 
+	return nil
+}
+
+
+
+
+разобраться в jwtManager и пассворд, должен лежать в ядре 
+
+
+
+СпотСервис 
+синтаксические ошибки в sql запросах 
+query := `SELECT market_id, name, base_asset, quote_asset, enabled, price, created_at, updated_at
+              FROM markets LIMIT $1 OFFSET $2 WHERE enabled = true`
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+проверить корректность запроса+
+
+
+type RedisConfig struct{
+	Host string
+	Port int
+} //добавит пароль и дб инт и передавать в редис опшенс
+
+skipMethods := []string{
+		"/spot.SpotInstrumentService/GetAllActive",   //берем из прото, переиенновала метод и забыла испраить тут, изменить 
+} 
+Разобраться с этим методом. Понять, откуда конретно мы его подтягиваем из методов портов или grpc контрактов
+
+добавить валидацию в редисе для проверки. 
++ пагинацию для строкового маркетID (хронологический порядок для рынков)
+
+jsonB явно маршалировадь структуру. (повторно проверить запросы к бд)
+утечку зависимостей, аргументы проверить (9 передаем,ждем 8), проверить запросы sql, корректность методов, конфиг валидейт, для редиса валидация и корректность. В маркет сервис проверить порты и корректность написания. внешний пакет.
+
+ЛОГИКА LOGOUT
+
+Можно начинать писать orderService ПОСЛЕ ВСЕХ ПРАВОК И ПРОВЕРКИ КОРРЕТНОСТИ РАБОТОСПОСОБНОСТИ, ПРОТЕСТИТЬ POSTMAN 

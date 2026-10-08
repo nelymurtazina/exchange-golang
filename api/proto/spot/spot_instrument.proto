@@ -9,14 +9,19 @@ import "common/money.proto";
 import "google/protobuf/timestamp.proto";
 import "validate/validate.proto";  
  
-
-
+// SpotInstrumentService manages trading pairs (instruments) on the spot market:
+// listing, retrieving details, and managing availability (enabling/disabling).
 service SpotInstrumentService {
-  rpc ListMarkets(ListMarketsRequest) returns (ListMarketsResponse); 
-  rpc GetMarket(GetMarketRequest) returns (GetMarketResponse); 
-  rpc DisableMarket(DisableMarketRequest) returns (DisableMarketResponse);
+    // ListMarkets returns a paginated list of available trading pairs.
+    rpc ListMarkets(ListMarketsRequest) returns (ListMarketsResponse);
+    // GetMarket retrieves detailed information about a specific trading pair by its ID. 
+    rpc GetMarket(GetMarketRequest) returns (GetMarketResponse); 
+    // DisableMarket disables the specified trading pair (makes it unavailable for trading).
+    // Returns the updated market state.
+    rpc DisableMarket(DisableMarketRequest) returns (DisableMarketResponse);
 }
 
+// Market represents a trading pair (instrument) on the spot market.
 message Market{
   string market_id = 1[
       (validate.rules).string = {
@@ -24,14 +29,27 @@ message Market{
       } 
   ];
   string name = 2; 
-  string base_asset = 3; 
-  string quote_asset = 4; 
+  string base_asset = 3[
+    (validate.rules).string = {
+        min_len: 2,
+        max_len: 10,
+        pattern: "^[A-Z]+$"
+    }
+]; 
+  string quote_asset = 4[
+    (validate.rules).string = {
+        min_len: 2,
+        max_len: 10,
+        pattern: "^[A-Z]+$"
+    }
+]; 
   bool enabled = 5;
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp updated_at = 7;
   common.v1.Money price = 8;
 }
 
+// ListMarketsRequest contains parameters for retrieving a paginated list of markets.
 message ListMarketsRequest {
     int32 page_size = 1 [
         (validate.rules).int32 = {
@@ -42,11 +60,13 @@ message ListMarketsRequest {
     string page_token = 2; 
 }
 
+// ListMarketsResponse contains the list of markets and pagination data.
 message ListMarketsResponse {
   repeated Market markets = 1; 
   string next_page_token = 2;
 }
 
+// GetMarketRequest contains the ID of the requested market.
 message GetMarketRequest {
     string market_id = 1 [
         (validate.rules).string = {
@@ -54,11 +74,13 @@ message GetMarketRequest {
         }
     ];
 }
+
+// GetMarketResponse contains detailed information about the requested market.
 message GetMarketResponse{
   Market market = 1;
 }
 
-
+// DisableMarketRequest contains the ID of the market to be disabled.
 message DisableMarketRequest {
   string market_id = 1[
       (validate.rules).string = {
@@ -67,6 +89,7 @@ message DisableMarketRequest {
   ];
 }
 
+// DisableMarketResponse returns the updated state of the market after disabling.
 message DisableMarketResponse {
   Market market = 1;
 }

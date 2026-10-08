@@ -48,7 +48,7 @@ type RefreshTokenOutput struct {
 }
 
 type ChangePasswordInput struct{
-	Email string
+	UserID string
 	CurrentPassword string
     NewPassword     string
 }

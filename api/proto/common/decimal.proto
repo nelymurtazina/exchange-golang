@@ -5,12 +5,22 @@ import "validate/validate.proto";
 
 option go_package = "test-project/api/gen/common;commonv1";
 
+// Decimal represents a high-precision decimal number. 
+// It consists of a whole number part (units) and a fractional part (nanos), 
+// supporting up to 9 decimal places (10^-9 precision).
+// This is commonly used for financial calculations, prices, and balances 
+// to avoid floating-point precision issues.
 message Decimal {
+    // The whole number part of the decimal value.
+    // Must be greater than or equal to 0.
     int64 units = 1 [
         (validate.rules).int64 = {
             gte: 0  // >= 0 
         }
     ];
+    // The fractional part of the decimal value in nanos (billionths).
+    // Must be between 0 and 999,999,999 inclusive.
+    // For example, a value of 500,000,000 represents 0.5.
     int32 nanos = 2 [
         (validate.rules).int32 = {
             gte: 0,      // >= 0

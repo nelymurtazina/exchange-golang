@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,13 +10,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn" 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 )
 
 type UserRepository struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func NewUserRepository(db *sql.DB) ports.UserRepository {
+func NewUserRepository(db *pgxpool.Pool) ports.UserRepository {
 	return &UserRepository{db: db}
 }
 
@@ -25,7 +26,7 @@ func (u *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	query := `INSERT INTO users (user_id, username, email, password, role, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err := u.db.ExecContext(ctx, query,
+	_, err := u.db.Exec(ctx, query,
 		user.UserID, user.UserName, user.Email, user.PasswordHash,
 		user.Role, user.CreatedAt, user.UpdatedAt,
 	)
@@ -46,16 +47,13 @@ func (u *UserRepository) Create(ctx context.Context, user *domain.User) error {
 }
 
 func (u *UserRepository) Delete(ctx context.Context, id string) error {
-	query := `UPDATE users SET updated_at = $1 WHERE user_id = $2`
+	query := `UPDATE users SET updated_at = NOW() WHERE user_id = $1`
 	now := time.Now()
-	result, err := u.db.ExecContext(ctx, query, now, id)
+	result, err := u.db.Exec(ctx, query, now, id)
 	if err != nil {
 		return err
 	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
+	rows := result.RowsAffected()
 	if rows == 0 {
 		return domain.ErrUserNotFound
 	}
@@ -67,7 +65,7 @@ func (u *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 		SELECT user_id, username, email, password, role, created_at, updated_at
 		FROM users WHERE email = $1 
 	`
-	row := u.db.QueryRowContext(ctx, query, email)
+	row := u.db.QueryRow(ctx, query, email)
 	return u.scanUser(row)
 }
 
@@ -77,7 +75,7 @@ func (u *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 		FROM users WHERE user_id = $1 
 	`
 	//когда поменяю контракт изменится логика сервиса 
-	row := u.db.QueryRowContext(ctx, query, id)
+	row := u.db.QueryRow(ctx, query, id)
 	return u.scanUser(row)
 }
 
@@ -87,13 +85,13 @@ func (u *UserRepository) Update(ctx context.Context, user *domain.User) error {
 		SET username = $1, email = $2, password = $3, role = $4, updated_at = $5
 		WHERE user_id = $6
 	`
-	_, err := u.db.ExecContext(ctx, query,
+	_, err := u.db.Exec(ctx, query,
 		user.UserName, user.Email, user.PasswordHash, user.Role, user.UpdatedAt, user.UserID,
 	)
 	return err
 }
 
-func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
+func (u *UserRepository) scanUser(row pgx.Row) (*domain.User, error) {
 	var user domain.User
 	err := row.Scan(
 		&user.UserID,
@@ -105,7 +103,7 @@ func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
 		&user.UpdatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrUserNotFound
 		}
 		return nil, err
@@ -115,22 +113,19 @@ func (r *UserRepository) scanUser(row *sql.Row) (*domain.User, error) {
 }
 
 
-func (r *UserRepository) UpdatePassword(ctx context.Context, userID string, passwordHash string) error{
+func (u *UserRepository) UpdatePassword(ctx context.Context, userID string, passwordHash string) error{
 	query := `UPDATE users 
-        SET password = $1, updated_at = $2
-        WHERE user_id = $3`
+        SET password = $1, updated_at = NOW()
+        WHERE user_id = $2`
 	now := time.Now()
-	result, err := r.db.ExecContext(ctx, query,passwordHash,now,userID)
+	result, err := u.db.Exec(ctx, query,passwordHash,now,userID)
 	if err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
+	rows := result.RowsAffected()
 	if rows == 0 {
-		return fmt.Errorf("ErrUserNotFound: %w", err)
-	}
+		return domain.ErrUserNotFound
+	} 
 	return nil
 }

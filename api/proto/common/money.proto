@@ -7,12 +7,19 @@ option go_package = "test-project/api/gen/common;commonv1";
 
 import "common/decimal.proto";
 
+// Money represents a monetary value consisting of a precise amount and a currency.
+// It is used for financial transactions, balances, and prices to ensure type safety 
+// and prevent accidental mixing of different currencies.
 message Money {
+    // The numeric value of the money. 
+    // This field is required and uses the Decimal type to avoid floating-point precision issues.
   Decimal amount = 1 [
         (validate.rules).message = {
             required: true
         }
     ];
+    // The 3-letter ISO 4217 currency code (e.g., "USD", "EUR", "RUB", "USDT").
+    // Must be exactly 3 uppercase Latin letters.
     string currency_code = 2 [
         (validate.rules).string = {
             min_len: 3,

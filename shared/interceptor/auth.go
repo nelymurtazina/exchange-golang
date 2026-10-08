@@ -2,6 +2,8 @@ package interceptor
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
@@ -12,11 +14,11 @@ import (
 )
 
 type JWTValidator interface {
-    ValidateAccessToken(token string) (userID string, role string, err error)
-}
+    ValidateAccessToken(token string) (claims map[string]any, err error)
+} 
 
 type userIDKey struct{}
-type userRoleKey struct{}
+type userRoleKey struct{}  
 
 func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []string) grpc.UnaryServerInterceptor {
 	skipMap := make(map[string]struct{}, len(skipMethods))
@@ -34,21 +36,36 @@ func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []s
         	return handler(ctx, req)
     	}
 
-		userID, role, err := validateTokenFromContext(ctx, validator)
+		claims, err :=  validateTokenFromContext(ctx, validator)
 		if err != nil {
 			logFields := []zap.Field{
 				zap.String("request_id", GetRequestID(ctx)),
 				zap.String("method", info.FullMethod),
 				zap.Error(err),
 			}
-			if status.Code(err) == codes.Unauthenticated {
-				logger.Warn("auth failed: client side issue", logFields...)
-				return nil, status.Errorf(codes.Unauthenticated, "invalid token")
+
+			if errors.Is(err, ErrMetadataMissing) || errors.Is(err, ErrTokenMissing) || errors.Is(err, ErrInvalidHeaderFormat) {
+				logger.Warn("auth failed: client side issue (bad format)", logFields...)
+				return nil, status.Error(codes.Unauthenticated, "missing or invalid authorization header")
 			}
 
-			// Во всех остальных случаях — это системный сбой на нашей стороне
+			if errors.Is(err, ErrTokenValidation) {
+				logger.Warn("auth failed: invalid token", logFields...)
+				return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
+			}
+
 			logger.Error("auth failed: internal system error", logFields...)
-			return nil, status.Errorf(codes.Unauthenticated, "internal authentication error")
+			return nil, status.Error(codes.Internal, "internal authentication error")
+		}
+
+		userID, ok := claims["user_id"].(string)
+		if !ok {
+			return nil, status.Errorf(codes.Internal, "invalid user_id in token")
+		}
+
+		role, ok := claims["role"].(string)
+		if !ok {
+			return nil, status.Errorf(codes.Internal, "invalid role in token")
 		}
 
 		ctx = context.WithValue(ctx, userIDKey{}, userID)
@@ -74,8 +91,7 @@ func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMetho
        		return handler(srv, ss)
     	}
 
-		userID, role, err := validateTokenFromContext(ss.Context(), validator)
-		
+		claims, err := validateTokenFromContext(ss.Context(), validator)
 		if err != nil {
 			logFields := []zap.Field{
 				zap.String("request_id", GetRequestID(ss.Context())),
@@ -83,13 +99,28 @@ func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMetho
 				zap.Error(err),
 			}
 
-			if status.Code(err) == codes.Unauthenticated {
-				logger.Warn("auth failed: client side issue", logFields...)
-				return status.Errorf(codes.Unauthenticated, "invalid token")
+			if errors.Is(err, ErrMetadataMissing) || errors.Is(err, ErrTokenMissing) || errors.Is(err, ErrInvalidHeaderFormat) {
+				logger.Warn("auth failed: client side issue (bad format)", logFields...)
+				return status.Error(codes.Unauthenticated, "missing or invalid authorization header")
+			}
+
+			if errors.Is(err, ErrTokenValidation) {
+				logger.Warn("auth failed: invalid token", logFields...)
+				return status.Error(codes.Unauthenticated, "invalid or expired token")
 			}
 
 			logger.Error("auth failed: internal system error", logFields...)
-			return status.Errorf(codes.Unauthenticated, "internal authentication error")
+			return status.Errorf(codes.Internal, "internal authentication error")
+		}
+
+		userID, ok := claims["user_id"].(string)
+		if !ok {
+			return status.Errorf(codes.Internal, "invalid user_id in token")
+		}
+
+		role, ok := claims["role"].(string)
+		if !ok {
+			return status.Errorf(codes.Internal, "invalid role in token")
 		}
 		
 		ctx := context.WithValue(ss.Context(), userIDKey{}, userID)
@@ -100,24 +131,28 @@ func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMetho
 	}
 }
 
-func validateTokenFromContext(ctx context.Context, validator JWTValidator) (string, string, error) {
+func validateTokenFromContext(ctx context.Context, validator JWTValidator) (map[string]any, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return "", "" ,status.Errorf(codes.Unauthenticated, "metadata is not provided")
+		return nil, ErrMetadataMissing
 	}
 
 	authHeader := md.Get("authorization")
 	if len(authHeader) == 0 {
-		return "", "", status.Errorf(codes.Unauthenticated, "authorization token is missing")
+		return nil, ErrTokenMissing
 	}
 
 	// "Bearer <token>" — не чувствительный к регистру
 	parts := strings.SplitN(authHeader[0], " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return "","", status.Errorf(codes.Unauthenticated, "invalid authorization header format")
+		return nil, ErrInvalidHeaderFormat
 	}
 
-	return validator.ValidateAccessToken(parts[1])
+	claims, err := validator.ValidateAccessToken(parts[1])
+	if err != nil{
+		return nil, fmt.Errorf("%w: %v", ErrTokenValidation, err)
+	}
+	return claims, nil
 }
 
 func GetUserIDFromContext(ctx context.Context) (string, bool) {

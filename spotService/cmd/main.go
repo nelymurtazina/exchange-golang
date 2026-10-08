@@ -20,7 +20,6 @@ import (
 
 	redisAdapter "test-project/spotService/internal/adapters/outbound/redis"
 
-	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/redis/go-redis/v9"
@@ -50,44 +49,21 @@ func main() {
     if err != nil {
         logger.Fatal("failed to connect to database", zap.Error(err))
     }
-    defer func() { _ = db.Close() }()
-
-    if cfg.Migration.Enabled {
-        logger.Info("Running migrations...")
-
-        dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-            cfg.Database.User,
-            cfg.Database.Password,
-            cfg.Database.Host,
-            cfg.Database.Port,
-            cfg.Database.DBName,
-            cfg.Database.SSLMode,
-        )
-
-        m, err := migrate.New(
-            "file://"+cfg.Migration.Path,
-            dsn,
-        )
-        if err != nil {
-            logger.Fatal("failed to create migrate instance", zap.Error(err))
-        }
-
-        if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-            logger.Fatal("failed to apply migrations", zap.Error(err))
-        }
-
-        logger.Info("Migrations applied successfully")
-    }
+    defer db.Close()
 
     repo := postgres.NewMarketRepository(db)
+
     rdb := redis.NewClient(&redis.Options{
         Addr: fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+        Password: cfg.Redis.Password,
+        DB:       cfg.Redis.DB,
     })
+
     marketCache := redisAdapter.NewMarketCache(rdb)
     jwtValidator := auth.NewTokenValidator(cfg.JWT.Secret)
     marketService := service.NewMarketService(repo, marketCache)  
     skipMethods := []string{
-		"/spot.SpotInstrumentService/GetAllActive",  
+		"/spot.SpotInstrumentService/ListMarket",   //берем из прото, переиенновала метод и забыла испраить тут, изменить 
 	}
     grpcHandler := handler.NewMarketHandler(marketService)  
 
@@ -133,6 +109,10 @@ func main() {
 
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
+
+    if err := rdb.Ping(ctx).Err(); err != nil {
+        logger.Fatal("failed to connect to redis", zap.Error(err))
+    }
 
     shutdownDone := make(chan struct{})
     go func() {

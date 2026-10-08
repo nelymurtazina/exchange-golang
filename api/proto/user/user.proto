@@ -5,18 +5,64 @@ option go_package = "test-project/api/gen/user;userv1";
 import "google/protobuf/timestamp.proto";
 import "validate/validate.proto";  
  
-
-service UserService{
-    rpc Register(RegisterRequest) returns(RegisterResponse);
+// UserService handles user identity: registration, login, token lifecycle,
+// and profile management.
+service UserService {
+    // Register creates a new user account and immediately issues an
+    // access/refresh token pair (auto-login on successful registration).
+    // Returns error if username or email is already taken.
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+    
+    // Login authenticates a user by email and password and issues a new
+    // access/refresh token pair. Returns error on invalid credentials.
+    // Passwords are stored as non-reversible hashes; password leaking when emails are
+    // leaked is therefore not a problem.
     rpc Login(LoginRequest) returns (LoginResponse);
+    
+    // Logout revokes the given refresh token. The associated access token
+    // remains valid until it naturally expires (stateless JWT limitation).
     rpc Logout(LogoutRequest) returns (LogoutResponse);
+    
+    // GetUser retrieves a user profile by user_id.
+    // Returns full profile if caller is admin, limited profile otherwise.
+    // The caller's identity is taken from the access token.
     rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    
+    // GetCurrentUser retrieves the authenticated user's full profile.
+    // User information is extracted from the access token, not from the
+    // request body.
+    rpc GetProfileCurrentUser(GetUserRequest) returns (GetProfilePreviewResponse);
+    
+    // ValidateToken checks whether an access token is currently valid and
+    // returns the subject's user_id and role if so. Used internally by the
+    // auth middleware and external services to validate tokens without
+    // re-implementing the signing secret.
     rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+    
+    // RefreshToken exchanges a valid, unused refresh token token for a new
+    // access/refresh token pair. The old refresh token is invalidated
+    // immediately on success (rotation policy); it cannot be reused.
     rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
-    rpc ChangePassword (ChangePasswordRequest) returns (ChangePasswordResponse); //смена пароля доступна только для авторизованного пользователя
-    rpc GetCurrentUser (GetUserRequest) returns (GetProfilePreviewResponse);
+    
+    // ChangePassword changes the caller's own password. Requires the current
+    // password for confirmation. Returns error if old password is incorrect
+    // or new password fails validation.
+    rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
 }
 
+// Role is the set of permission levels a user account can hold.
+enum Role {
+    // Default unspecified role.
+    ROLE_UNSPECIFIED = 0;
+    // Regular user with standard permissions.
+    ROLE_USER = 1;
+    // Administrator with elevated permissions.
+    ROLE_ADMIN = 2;
+    // Guest user with limited permissions.
+    ROLE_GUEST = 3;
+}
+
+// User represents a user account in the system.
 message User{
     string user_id = 1 [
         (validate.rules).string.uuid = true
@@ -35,13 +81,8 @@ message User{
     google.protobuf.Timestamp created_at = 5;
     google.protobuf.Timestamp updated_at = 6;
 }
-enum Role {
-    ROLE_UNSPECIFIED = 0;
-    ROLE_USER = 1;
-    ROLE_ADMIN = 2;
-    ROLE_GUEST = 3;
-}
 
+// RegisterRequest contains information required to create a new user account.
 message RegisterRequest {
     string username = 1[
         (validate.rules).string = {
@@ -61,12 +102,14 @@ message RegisterRequest {
     ];
 } 
 
+// RegisterResponse contains the created user ID and authentication tokens.
 message RegisterResponse{
     string user_id = 1; 
     string access_token = 2;
     string refresh_token = 3;
 }
 
+// LoginRequest contains credentials for user authentication.
 message LoginRequest { 
     string email = 1[
         (validate.rules).string.email = true
@@ -78,25 +121,32 @@ message LoginRequest {
         }
     ];
 }
+
+// LoginResponse contains authentication tokens for the logged-in user.
 message LoginResponse{
     string access_token = 1;
     string refresh_token = 2;
 }
 
+// LogoutRequest contains the refresh token to be invalidated.
 message LogoutRequest{
     string refresh_token = 1[
         (validate.rules).string = {
-            min_len: 1
+            min_len: 20
         }
     ];
 }
+
+// LogoutResponse is returned when logout is successful.
 message LogoutResponse {
 }
 
+// GetCurrentUserRequest is empty as user ID is extracted from the access token.
 message GetUserRequest  {
     // user_id беру из токена 
 }
 
+// GetUserResponse contains the user's profile information.
 message GetUserResponse{
   string user_id = 1;
   string username = 2;
@@ -106,43 +156,45 @@ message GetUserResponse{
   google.protobuf.Timestamp updated_at = 6;
 }
 
+// ValidateTokenRequest contains an access token to validate.
 message ValidateTokenRequest{
     string access_token = 1 [
         (validate.rules).string = {
-            min_len: 1
+            min_len: 20
         }
     ]; 
 }
 
+// ValidateTokenResponse contains user information extracted from the token.
 message ValidateTokenResponse {
   string user_id = 1;
   Role role = 2;
 }
 
+// RefreshTokenRequest contains a refresh token to exchange for new tokens.
 message RefreshTokenRequest{
     string refresh_token = 1 [
         (validate.rules).string = {
-            min_len: 1
+            min_len: 20
         }
     ];
 }
 
+// RefreshTokenResponse contains a new pair of access and refresh tokens.
 message RefreshTokenResponse{
     string access_token = 1;
     string refresh_token = 2;
 }
 
+// ChangePasswordRequest contains passwords for changing the user's password.
 message ChangePasswordRequest {
-  string email = 1 [
-        (validate.rules).string.email = true
-    ];
-    string current_password  = 2[
+    string current_password  = 1[
         (validate.rules).string = {
             min_len: 8,
             max_len: 72
         }
     ];
-    string new_password = 3[
+    string new_password = 2[
         (validate.rules).string = {
             min_len: 8,
             max_len: 72
@@ -150,9 +202,9 @@ message ChangePasswordRequest {
     ];
 }
 
+// ChangePasswordResponse confirms successful password change.
 message ChangePasswordResponse {
-    bool success = 1;
-    string message = 2;  
+    string message = 1;
 }
 
 message UserProfilePreview {

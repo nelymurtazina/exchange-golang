@@ -1,4 +1,4 @@
-package hendler
+package handler 
 
 import (
 	"context"
@@ -149,31 +149,38 @@ func domainRoleToProto(role string) pb.Role {
 }
 
 func (h *UserHandler) ChangePassword(ctx context.Context, req *pb.ChangePasswordRequest) (*pb.ChangePasswordResponse, error){
-	output, err := h.service.ChangePassword(ctx, ports.ChangePasswordInput{
-		Email: req.Email,
-		CurrentPassword: req.CurrentPassword,
-		NewPassword: req.NewPassword,
-	})
+	userID, ok := interceptor.GetUserIDFromContext(ctx)
+    if !ok {
+        return nil, status.Error(codes.Unauthenticated, "user not authenticated")
+    }
+	_, err := h.service.ChangePassword(ctx, ports.ChangePasswordInput{
+        UserID:          userID,          
+        CurrentPassword: req.CurrentPassword,
+        NewPassword:     req.NewPassword,
+    })
 	if err != nil {
-		switch{
-		case errors.Is(err, domain.ErrInvalidCredentials):
-			return nil, status.Error(codes.Unauthenticated, "invalid credentials")
-		case errors.Is(err, domain.ErrInvalidEmail),
-            errors.Is(err, domain.ErrInvalidPassword):
-            return nil, status.Error(codes.InvalidArgument, err.Error())
+        switch {
+        case errors.Is(err, domain.ErrInvalidCredentials):
+            return nil, status.Error(codes.Unauthenticated, "invalid credentials")
+        case errors.Is(err, domain.ErrInvalidEmail) || errors.Is(err, domain.ErrInvalidPassword):
+            return nil, status.Error(codes.InvalidArgument, "invalid password format")
         default:
             return nil, status.Error(codes.Internal, "internal error")
-		}
-	}
-	return &pb.ChangePasswordResponse{
-		Success: output.Success,
-		Message: "Password changed successfully",
-	}, nil
+        }
+    }
+    
+    return &pb.ChangePasswordResponse{
+        Message: "Password changed successfully",
+    }, nil
 }
 
 func (h *UserHandler) GetProfilePreview(ctx context.Context, req *pb.GetUserRequest) (*pb.GetProfilePreviewResponse, error) {
-    output, err := h.service.GetProfilePreview(ctx, ports.GetProfilePreviewInput{
-        UserID: req.UserId,
+    targetUserID, ok := interceptor.GetUserIDFromContext(ctx)
+    if !ok {
+        return nil, status.Error(codes.Unauthenticated, "user not authenticated")
+    }
+	output, err := h.service.GetProfilePreview(ctx, ports.GetProfilePreviewInput{
+        UserID: targetUserID, 
     })
     if err != nil {
         if errors.Is(err, domain.ErrUserNotFound) {

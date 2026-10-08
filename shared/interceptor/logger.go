@@ -38,8 +38,8 @@ func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 				zap.String("status_code", code.String()),
 				zap.Error(err),
 			}
-			// Если код ошибки равен Internal (ошибка сервера) — пишем Error.
-			// Если любой другой (пользователь ошибся) — пишем Warn.
+			// Если ошибка сервера — пишем Error.
+			// Если пользователь ошибся — пишем Warn.
 			if code == codes.Internal {
 				logger.Error("gRPC request failed with internal error", logFields...)
 			} else {

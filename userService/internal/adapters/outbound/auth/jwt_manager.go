@@ -2,12 +2,13 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-//сделать интерфейс для JWTManager 
+//сделать интерфейс для JWTManager
 
 type JWTManager struct {
 	secret       string
@@ -44,7 +45,7 @@ func (m *JWTManager) GenerateRefreshToken(userID string, role string) (string, e
 	return token.SignedString([]byte(m.secret))
 }
 
-func (m *JWTManager) ValidateAccessToken(tokenString string) (string, string, error) {  
+func (m *JWTManager) ValidateAccessToken(tokenString string) (claims map[string]any, err error) {  
     token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
         if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
             return nil, errors.New("unexpected signing method")
@@ -52,21 +53,23 @@ func (m *JWTManager) ValidateAccessToken(tokenString string) (string, string, er
         return []byte(m.secret), nil
     })
     if err != nil {
-        return "", "", err
-    }
+		return nil, err
+	}
 
     if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
         if isRefresh, ok := claims["refresh"].(bool); ok && isRefresh {
-            return "", "", errors.New("refresh token cannot be used as access token")
+            return nil, errors.New("refresh token cannot be used as access token")
         }
-        userID, ok := claims["user_id"].(string)
-        if !ok {
-            return "", "", errors.New("invalid user_id in token")
+        if _, ok := claims["user_id"].(string); !ok {
+            return nil, errors.New("invalid user_id in token")
         }
-        role, _ := claims["role"].(string) 
-        return userID, role, nil 
+        if _, ok := claims["role"].(string); !ok {
+            return nil, errors.New("invalid user_id in token")
+        }
+        
+        return map[string]any(claims), nil
     }
-    return "", "", errors.New("invalid token")
+    return nil, errors.New("invalid token")
 }
 
 func (m *JWTManager) ValidateRefreshToken(tokenString string) (string, string, error) {  // ← + role
@@ -95,11 +98,20 @@ func (m *JWTManager) ValidateRefreshToken(tokenString string) (string, string, e
     return "", "", errors.New("invalid refresh token")
 }
 
-func (m *JWTManager) RefreshToken(refreshToken string) (string, error) {
+func (m *JWTManager) RefreshToken(refreshToken string) (string, string, error) {
     userID, role, err := m.ValidateRefreshToken(refreshToken) 
     if err != nil {
-        return "", err
+        return "", "", err
     }
-    return m.GenerateAccessToken(userID, role)  
-    //сразу менять оба, а не только аксес
+    newAccessToken, err := m.GenerateAccessToken(userID, role)
+    if err != nil {
+        return "", "", fmt.Errorf("failed to generate new access token: %w", err)
+    }
+
+    newRefreshToken, err := m.GenerateRefreshToken(userID, role)
+    if err != nil {
+        return "", "", fmt.Errorf("failed to generate new refresh token: %w", err)
+    }
+    return newAccessToken, newRefreshToken, nil 
+    
 }
