@@ -29,6 +29,8 @@ import (
 )
 
 func main() {
+    redisHost := os.Getenv("REDIS_HOST")
+    fmt.Printf("DEBUG: REDIS_HOST = %q\n", redisHost)
     logger, err := zap.NewProduction()
     if err != nil {
         log.Fatalf("failed to create logger: %v", err)

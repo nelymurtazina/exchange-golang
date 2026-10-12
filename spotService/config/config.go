@@ -12,16 +12,18 @@ import (
 )
 
 type Config struct {
-	Database DatabaseConfig
-	Redis RedisConfig
-	JWT      JWTConfig
+	Database  DatabaseConfig
+	Redis     RedisConfig
+	JWT       JWTConfig
 	Password  PasswordConfig
-	Services ServicesConfig
+	Services  ServicesConfig
 	Migration MigrationConfig
 }
+
 type PasswordConfig struct {
-    BcryptCost int
+	BcryptCost int
 }
+
 type DatabaseConfig struct {
 	Host            string
 	Port            int
@@ -33,10 +35,12 @@ type DatabaseConfig struct {
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
 }
+
 type JWTConfig struct {
 	Secret       string
 	ExpiresHours int
 }
+
 type ServicesConfig struct {
 	OrderServicePort      string
 	InstrumentServicePort string
@@ -48,15 +52,15 @@ type MigrationConfig struct {
 	Path    string
 }
 
-type RedisConfig struct{
-	Host string
-	Port int
+type RedisConfig struct {
+	Host     string
+	Port     int
 	Password string
-	DB int
-} 
+	DB       int
+}
 
-func LoadConfig() (Config, error){
-	if err := godotenv.Load(); err != nil{
+func LoadConfig() (Config, error) {
+	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found, using environment variables")
 	}
 
@@ -65,8 +69,8 @@ func LoadConfig() (Config, error){
 
 	cfg.Database.Host, err = getEnv("DB_HOST")
 	if err != nil {
-        return cfg, err
-    }
+		return cfg, err
+	}
 	cfg.Database.Port, err = getEnvAsInt("DB_PORT")
 	if err != nil {
 		return cfg, err
@@ -104,64 +108,66 @@ func LoadConfig() (Config, error){
 	cfg.Database.ConnMaxLifetime = time.Duration(lifetime) * time.Minute
 
 	cfg.JWT.Secret, err = getEnv("JWT_SECRET")
-    if err != nil {
-        return cfg, err
-    }
-
-    cfg.JWT.ExpiresHours, err = getEnvAsInt("JWT_EXPIRES_HOURS")
-    if err != nil {
-        return cfg, err
-    }
-
-    cfg.Password.BcryptCost, err = getEnvAsInt("BCRYPT_COST")
-    if err != nil {
-        return cfg, err
-    }
-
-	cfg.Services.OrderServicePort, err = getEnv("ORDER_SERVICE_PORT")
 	if err != nil {
-        return cfg, fmt.Errorf("failed to get ORDER_SERVICE_PORT: %w", err)
-    }
-	cfg.Services.InstrumentServicePort, err = getEnv("SPOT_SERVICE_PORT")
-	if err != nil {
-        return cfg, fmt.Errorf("failed to get SPOT_SERVICE_PORT: %w", err)
-    }
-	cfg.Services.UserServicePort, err = getEnv("USER_SERVICE_PORT")
-	if err != nil {
-        return cfg, fmt.Errorf("failed to get USER_SERVICE_PORT: %w", err)
-    }
-
-	// Migration
-	cfg.Migration.Enabled = getEnvAsBool("MIGRATION_ENABLED", true)
-	cfg.Migration.Path, err = getEnv("SPOT_MIGRATION_PATH")
-	if err != nil {
-        return cfg, fmt.Errorf("SPOT_MIGRATION_PATH: %w", err)
-    }
-
-	if err := cfg.Validate(); err != nil {
 		return cfg, err
 	}
 
+	cfg.JWT.ExpiresHours, err = getEnvAsInt("JWT_EXPIRES_HOURS")
+	if err != nil {
+		return cfg, err
+	}
+
+	cfg.Password.BcryptCost, err = getEnvAsInt("BCRYPT_COST")
+	if err != nil {
+		return cfg, err
+	}
+
+	cfg.Services.OrderServicePort, err = getEnv("ORDER_SERVICE_PORT")
+	if err != nil {
+		return cfg, fmt.Errorf("failed to get ORDER_SERVICE_PORT: %w", err)
+	}
+	cfg.Services.InstrumentServicePort, err = getEnv("SPOT_SERVICE_PORT")
+	if err != nil {
+		return cfg, fmt.Errorf("failed to get SPOT_SERVICE_PORT: %w", err)
+	}
+	cfg.Services.UserServicePort, err = getEnv("USER_SERVICE_PORT")
+	if err != nil {
+		return cfg, fmt.Errorf("failed to get USER_SERVICE_PORT: %w", err)
+	}
+
+	cfg.Migration.Enabled = getEnvAsBool("MIGRATION_ENABLED", true)
+	cfg.Migration.Path, err = getEnv("SPOT_MIGRATION_PATH")
+	if err != nil {
+		return cfg, fmt.Errorf("SPOT_MIGRATION_PATH: %w", err)
+	}
+
 	cfg.Redis.Host, err = getEnv("REDIS_HOST")
-	if err != nil{
+	if err != nil {
 		return cfg, fmt.Errorf("failed to get REDIS_HOST: %w", err)
 	}
 	cfg.Redis.Port, err = getEnvAsInt("REDIS_PORT")
 	if err != nil {
 		return cfg, fmt.Errorf("failed to get REDIS_PORT: %w", err)
 	}
-	cfg.Redis.DB, _ = getEnvAsInt("REDIS_DB")
+	cfg.Redis.Password, _ = getEnv("REDIS_PASSWORD") 
+	cfg.Redis.DB, err = getEnvAsInt("REDIS_DB")
+	if err != nil {
+		return cfg, fmt.Errorf("failed to get REDIS_DB: %w", err)
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return cfg, err
+	}
 
 	return cfg, nil
-
 }
 
 func getEnv(key string) (string, error) {
-    value, exists := os.LookupEnv(key)
-    if !exists || value == "" {
-        return "", fmt.Errorf("%s is required in .env", key)
-    }
-    return value, nil
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return "", fmt.Errorf("%s is required in .env", key)
+	}
+	return value, nil
 }
 
 func getEnvAsInt(key string) (int, error) {
@@ -197,9 +203,11 @@ func (c Config) Validate() error {
 	if c.Database.ConnMaxLifetime <= 0 {
 		return errors.New("DB_CONN_MAX_LIFETIME must be > 0")
 	}
+
 	if c.Migration.Enabled && c.Migration.Path == "" {
 		return errors.New("MIGRATION_PATH is required when migrations are enabled")
 	}
+
 	if c.Redis.Host == "" {
 		return errors.New("redis host cannot be empty")
 	}
