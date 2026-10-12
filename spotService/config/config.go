@@ -122,9 +122,9 @@ func LoadConfig() (Config, error){
 	if err != nil {
         return cfg, fmt.Errorf("failed to get ORDER_SERVICE_PORT: %w", err)
     }
-	cfg.Services.InstrumentServicePort, err = getEnv("INSTRUMENT_SERVICE_PORT")
+	cfg.Services.InstrumentServicePort, err = getEnv("SPOT_SERVICE_PORT")
 	if err != nil {
-        return cfg, fmt.Errorf("failed to get INSTRUMENT_SERVICE_PORT: %w", err)
+        return cfg, fmt.Errorf("failed to get SPOT_SERVICE_PORT: %w", err)
     }
 	cfg.Services.UserServicePort, err = getEnv("USER_SERVICE_PORT")
 	if err != nil {
@@ -150,6 +150,7 @@ func LoadConfig() (Config, error){
 	if err != nil {
 		return cfg, fmt.Errorf("failed to get REDIS_PORT: %w", err)
 	}
+	cfg.Redis.DB, _ = getEnvAsInt("REDIS_DB")
 
 	return cfg, nil
 

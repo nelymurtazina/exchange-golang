@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package order.v1;
+option go_package = "test-project/api/gen/order;orderv1"; 
+import "common/money.proto";
+import "google/protobuf/timestamp.proto";
+import "validate/validate.proto"; 
+
+// OrderService provides methods for creating and managing trading orders.
+// Orders represent user requests to buy or sell assets on specific markets.
+service OrderService {
+    // CreateOrder creates a new trading order after validating the market availability.
+    // It checks if the market exists and is active via SpotInstrumentService.
+    // Returns the created order ID and initial status.
+    rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+    // GetOrderStatus retrieves the current status and details of an existing order.
+    // Requires order_id and user_id for authorization.
+    rpc GetOrderStatus(GetOrderStatusRequest) returns (GetOrderStatusResponse);
+}
+
+// Order represents a trading order in the system.
+// It contains all information about a user's request to buy or sell an asset.
+message Order {
+  string order_id = 1[
+        (validate.rules).string = { 
+            min_len: 1,
+            max_len: 100 
+        }
+    ];
+  string user_id = 2[
+        (validate.rules).string.uuid = true
+    ];
+  string market_id = 3[
+      (validate.rules).string = {
+          pattern: "^[A/Z]+-[A/Z]+$" 
+      } 
+  ];
+  string order_name = 4;
+  OrderType order_type = 5;
+  common.v1.Money price = 6;
+  double quantity = 7;
+  OrderStatus status = 8;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+// OrderType defines the direction of the trading order.
+enum OrderType {
+  ORDER_TYPE_UNSPECIFIED = 0;
+  ORDER_TYPE_BUY = 1;
+  ORDER_TYPE_SELL = 2;
+}
+
+// OrderStatus represents the lifecycle state of an order.
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_CREATED = 1;
+  ORDER_STATUS_PENDING = 2;
+  ORDER_STATUS_FILLED = 3;
+  ORDER_STATUS_CANCELLED = 4;
+  ORDER_STATUS_REJECTED = 5;
+}
+
+// CreateOrderRequest contains the data needed to create a new trading order.
+message CreateOrderRequest {
+  string user_id = 1[
+        (validate.rules).string = { 
+            min_len: 1,
+            max_len: 100 
+        }
+    ];
+  string market_id = 2[
+      (validate.rules).string = {
+          pattern: "^[A/Z]+-[A/Z]+$" 
+      } 
+  ];
+  OrderType order_type = 3;
+  common.v1.Money price = 4;
+  double quantity = 5;
+}
+
+// CreateOrderResponse is returned after successfully creating an order.
+message CreateOrderResponse {
+  string order_id = 1[
+        (validate.rules).string = { 
+            min_len: 1,
+            max_len: 100 
+        }
+    ];
+  OrderStatus status = 2;
+  string message = 3;
+}
+
+// GetOrderStatusRequest contains the identifiers needed to retrieve an order.
+message GetOrderStatusRequest {
+  string order_id = 1 [
+    (validate.rules).string = { 
+        min_len: 1, 
+        max_len: 100 
+    }
+    ];
+  string user_id = 2 [
+    (validate.rules).string = { 
+        min_len: 1, 
+        max_len: 100
+    }
+    ];
+}
+
+// GetOrderStatusResponse contains the full order details.
+message GetOrderStatusResponse {
+  Order order = 1;
+}

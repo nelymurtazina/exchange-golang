@@ -128,7 +128,7 @@ func LoadConfig() (Config, error) {
 		return cfg, err
 	}
 
-	cfg.Services.InstrumentServicePort, err = getEnv("INSTRUMENT_SERVICE_PORT")
+	cfg.Services.InstrumentServicePort, err = getEnv("SPOT_SERVICE_PORT")
 	if err != nil {
 		return cfg, err
 	}

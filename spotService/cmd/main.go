@@ -63,7 +63,7 @@ func main() {
     jwtValidator := auth.NewTokenValidator(cfg.JWT.Secret)
     marketService := service.NewMarketService(repo, marketCache)  
     skipMethods := []string{
-		"/spot.SpotInstrumentService/ListMarket",   //берем из прото, переиенновала метод и забыла испраить тут, изменить 
+		"/spot.SpotInstrumentService/ListMarket",   
 	}
     grpcHandler := handler.NewMarketHandler(marketService)  
 
@@ -113,6 +113,9 @@ func main() {
     if err := rdb.Ping(ctx).Err(); err != nil {
         logger.Fatal("failed to connect to redis", zap.Error(err))
     }
+
+    logger.Info("Redis connected successfully")
+	defer func() { _ = rdb.Close() }()
 
     shutdownDone := make(chan struct{})
     go func() {
