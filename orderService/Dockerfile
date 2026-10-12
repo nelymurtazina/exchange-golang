@@ -11,7 +11,7 @@ RUN go mod download
 COPY . .
 
 # Собираем приложение
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./spotService/cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o main ./orderService/cmd/main.go
 
 # Этап 2: Финальный образ (минимальный)
 FROM alpine:latest

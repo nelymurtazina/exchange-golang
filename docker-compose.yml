@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-  # Сначала запускаем базу данных
   postgres:
     image: postgres:15-alpine
     container_name: exchange_db
@@ -11,34 +8,113 @@ services:
       POSTGRES_DB: exchange
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d exchange"]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    networks:
+      - exchange-network
 
-  # Отдельный сервис для миграций
-  migrate:
+  redis:
+    image: redis:7-alpine
+    container_name: exchange_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - exchange-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  user-migrate:
     image: migrate/migrate:v4.16.2
-    container_name: exchange_migrate
-    # Монтируем твою локальную папку с SQL файлами внутрь контейнера
+    container_name: user_migrate
     volumes:
-      - ./spotService/migration:/migrations 
-      # (или ./userService/migrations, в зависимости от сервиса)
-    command: [
-      "-path", "/migrations",
-      "-database", "postgres://postgres:password@postgres:5432/exchange?sslmode=disable",
-      "up"
-    ]
-    # Ждем, пока postgres станет "healthy" (готовым принимать подключения)
+      - ./userService/migration:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://postgres:password@postgres:5432/exchange?sslmode=disable&x-migrations-table=user_schema_migrations"
+      - "up"
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - exchange-network
 
-  # Go-приложение 
+  spot-migrate:
+    image: migrate/migrate:v4.16.2
+    container_name: spot_migrate
+    volumes:
+      - ./spotService/migration:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://postgres:password@postgres:5432/exchange?sslmode=disable&x-migrations-table=spot_schema_migrations"
+      - "up"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - exchange-network
+
+  order-migrate:
+    image: migrate/migrate:v4.16.2
+    container_name: order_migrate
+    volumes:
+      - ./orderService/migration:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://postgres:password@postgres:5432/exchange?sslmode=disable&x-migrations-table=order_schema_migrations"
+      - "up"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - exchange-network
+
+  user-service:
+    build:
+      context: .
+      dockerfile: userService/Dockerfile
+    container_name: user_service
+    env_file:
+      - .env
+    ports:
+      - "50051:50051"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=exchange
+      - DB_SSLMODE=disable
+      - DB_MAX_OPEN_CONNS=25
+      - DB_MAX_IDLE_CONNS=5
+      - DB_CONN_MAX_LIFETIME=5
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=my-super-secret-key
+      - JWT_EXPIRES_HOURS=24
+      - BCRYPT_COST=12
+      - USER_SERVICE_PORT=:50051
+    depends_on:
+      user-migrate:
+        condition: service_completed_successfully
+    networks:
+      - exchange-network
+
   spot-service:
-    build: . # Или путь к Dockerfile
+    build:
+      context: .
+      dockerfile: spotService/Dockerfile
     container_name: spot_service
+    env_file:
+      - .env
     ports:
       - "50052:50052"
     environment:
@@ -47,9 +123,61 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=password
       - DB_NAME=exchange
+      - DB_SSLMODE=disable
+      - DB_MAX_OPEN_CONNS=25
+      - DB_MAX_IDLE_CONNS=5
+      - DB_CONN_MAX_LIFETIME=5
       - REDIS_HOST=redis
-     
-    # Запускаем приложение ТОЛЬКО после того, как миграции успешно завершатся
+      - REDIS_PORT=6379
+      - JWT_SECRET=my-super-secret-key
+      - JWT_EXPIRES_HOURS=24
+      - BCRYPT_COST=12
+      - SPOT_SERVICE_PORT=:50052
     depends_on:
-      migrate:
+      spot-migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - exchange-network
+
+  order-service:
+    build:
+      context: .
+      dockerfile: orderService/Dockerfile
+    container_name: order_service
+    env_file:
+      - .env
+    ports:
+      - "50053:50053"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=exchange
+      - DB_SSLMODE=disable
+      - DB_MAX_OPEN_CONNS=25
+      - DB_MAX_IDLE_CONNS=5
+      - DB_CONN_MAX_LIFETIME=5
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=my-super-secret-key
+      - JWT_EXPIRES_HOURS=24
+      - BCRYPT_COST=12
+      - ORDER_SERVICE_PORT=:50053
+      - SPOT_SERVICE_ADDR=spot-service:50052
+    depends_on:
+      order-migrate:
+        condition: service_completed_successfully
+      spot-service:
+        condition: service_started
+    networks:
+      - exchange-network
+
+networks:
+  exchange-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
