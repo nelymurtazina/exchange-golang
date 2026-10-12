@@ -241,9 +241,6 @@ func (s *UserService) ChangePassword(ctx context.Context, input portsInbound.Cha
     if err := domain.ValidatePassword(input.NewPassword); err != nil {
         return nil, err
     }
-    if err := domain.ValidatePassword(input.NewPassword); err != nil {
-        return nil, err
-    }
 
     user, err := s.repo.GetByID(ctx, input.UserID)
     if err != nil {

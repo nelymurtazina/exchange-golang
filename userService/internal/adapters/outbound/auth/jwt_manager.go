@@ -36,7 +36,7 @@ func (m *JWTManager) GenerateAccessToken(userID string, role string) (string, er
 func (m *JWTManager) GenerateRefreshToken(userID string, role string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
-		"role": role,
+		"role":    role,
 		"exp":     time.Now().Add(time.Duration(m.expiresHours) * time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
 		"refresh": true,

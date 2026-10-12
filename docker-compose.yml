@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -24,13 +26,13 @@ services:
     container_name: exchange_redis
     ports:
       - "6379:6379"
-    networks:
-      - exchange-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - exchange-network
 
   user-migrate:
     image: migrate/migrate:v4.16.2
@@ -86,22 +88,6 @@ services:
       - .env
     ports:
       - "50051:50051"
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=password
-      - DB_NAME=exchange
-      - DB_SSLMODE=disable
-      - DB_MAX_OPEN_CONNS=25
-      - DB_MAX_IDLE_CONNS=5
-      - DB_CONN_MAX_LIFETIME=5
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - JWT_SECRET=my-super-secret-key
-      - JWT_EXPIRES_HOURS=24
-      - BCRYPT_COST=12
-      - USER_SERVICE_PORT=:50051
     depends_on:
       user-migrate:
         condition: service_completed_successfully
@@ -116,23 +102,7 @@ services:
     env_file:
       - .env
     ports:
-      - "50052:50052"
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=password
-      - DB_NAME=exchange
-      - DB_SSLMODE=disable
-      - DB_MAX_OPEN_CONNS=25
-      - DB_MAX_IDLE_CONNS=5
-      - DB_CONN_MAX_LIFETIME=5
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - JWT_SECRET=my-super-secret-key
-      - JWT_EXPIRES_HOURS=24
-      - BCRYPT_COST=12
-      - SPOT_SERVICE_PORT=:50052
+      - "50052:50052" 
     depends_on:
       spot-migrate:
         condition: service_completed_successfully
@@ -150,23 +120,6 @@ services:
       - .env
     ports:
       - "50053:50053"
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=password
-      - DB_NAME=exchange
-      - DB_SSLMODE=disable
-      - DB_MAX_OPEN_CONNS=25
-      - DB_MAX_IDLE_CONNS=5
-      - DB_CONN_MAX_LIFETIME=5
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - JWT_SECRET=my-super-secret-key
-      - JWT_EXPIRES_HOURS=24
-      - BCRYPT_COST=12
-      - ORDER_SERVICE_PORT=:50053
-      - SPOT_SERVICE_ADDR=spot-service:50052
     depends_on:
       order-migrate:
         condition: service_completed_successfully

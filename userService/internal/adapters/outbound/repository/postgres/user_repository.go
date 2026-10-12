@@ -48,8 +48,7 @@ func (u *UserRepository) Create(ctx context.Context, user *domain.User) error {
 
 func (u *UserRepository) Delete(ctx context.Context, id string) error {
 	query := `UPDATE users SET updated_at = NOW() WHERE user_id = $1`
-	now := time.Now()
-	result, err := u.db.Exec(ctx, query, now, id)
+	result, err := u.db.Exec(ctx, query, id)
 	if err != nil {
 		return err
 	}
@@ -80,15 +79,20 @@ func (u *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 }
 
 func (u *UserRepository) Update(ctx context.Context, user *domain.User) error {
-	query := `
-		UPDATE users 
-		SET username = $1, email = $2, password = $3, role = $4, updated_at = $5
-		WHERE user_id = $6
+	query := `UPDATE users 
+        SET password = $1, updated_at = NOW()
+        WHERE user_id = $2
 	`
-	_, err := u.db.Exec(ctx, query,
-		user.UserName, user.Email, user.PasswordHash, user.Role, user.UpdatedAt, user.UserID,
-	)
-	return err
+	result, err := u.db.Exec(ctx, query, user.PasswordHash, user.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	rows := result.RowsAffected()
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	} 
+	return nil
 }
 
 func (u *UserRepository) scanUser(row pgx.Row) (*domain.User, error) {

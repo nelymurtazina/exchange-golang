@@ -133,3 +133,17 @@ func ValidateQuantity(quantity float64) error {
 	}
 	return nil
 }
+
+// проверяет, что market_id имеет формат "BTC-USD"
+func ValidateMarketID(marketID string) error {
+	if marketID == "" {
+		return ErrInvalidMarketID
+	}
+	
+	matched, _ := regexp.MatchString(`^[A-Z]+-[A-Z]+$`, marketID)
+	if !matched {
+		return ErrInvalidMarketID
+	}
+	
+	return nil
+}

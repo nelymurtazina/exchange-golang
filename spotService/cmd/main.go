@@ -29,107 +29,113 @@ import (
 )
 
 func main() {
-    redisHost := os.Getenv("REDIS_HOST")
-    fmt.Printf("DEBUG: REDIS_HOST = %q\n", redisHost)
-    logger, err := zap.NewProduction()
-    if err != nil {
-        log.Fatalf("failed to create logger: %v", err)
-    }
-    defer func(){
-        _ = logger.Sync()
-    }()
-    cfg, err := config.LoadConfig()
-    if err != nil {
-        log.Fatalf("failed to load config: %v", err)
-    }
-
-    if err := cfg.Validate(); err != nil {
-        logger.Fatal("invalid config", zap.Error(err))
-    }
-
-    db, err := postgres.NewConnection(cfg.Database)
-    if err != nil {
-        logger.Fatal("failed to connect to database", zap.Error(err))
-    }
-    defer db.Close()
-
-    repo := postgres.NewMarketRepository(db)
-
-    rdb := redis.NewClient(&redis.Options{
-        Addr: fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
-        Password: cfg.Redis.Password,
-        DB:       cfg.Redis.DB,
-    })
-
-    marketCache := redisAdapter.NewMarketCache(rdb)
-    jwtValidator := auth.NewTokenValidator(cfg.JWT.Secret)
-    marketService := service.NewMarketService(repo, marketCache)  
-    skipMethods := []string{
-		"/spot.SpotInstrumentService/ListMarket",   
+	redisHost := os.Getenv("REDIS_HOST")
+	fmt.Printf("DEBUG: REDIS_HOST = %q\n", redisHost)
+	
+	logger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalf("failed to create logger: %v", err)
 	}
-    grpcHandler := handler.NewMarketHandler(marketService)  
+	defer func() { _ = logger.Sync() }()
 
-    grpcServer := grpc.NewServer(
-        grpc.ChainUnaryInterceptor(
-            interceptor.PanicRecoveryInterceptor(logger),
-            interceptor.XRequestIDInterceptor(),
-            interceptor.LoggerInterceptor(logger),
-            interceptor.AuthInterceptor(jwtValidator, logger, skipMethods), 
-        ),
-        grpc.ChainStreamInterceptor(
-            interceptor.PanicRecoveryStreamInterceptor(logger),
-            interceptor.XRequestIDStreamInterceptor(),
-            interceptor.LoggerStreamInterceptor(logger),
-            interceptor.AuthStreamInterceptor(jwtValidator, logger, skipMethods),
-        ),
-    )
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
 
-    pb.RegisterSpotInstrumentServiceServer(grpcServer, grpcHandler)
-    reflection.Register(grpcServer)
+	if err := cfg.Validate(); err != nil {
+		logger.Fatal("invalid config", zap.Error(err))
+	}
 
-    lis, err := net.Listen("tcp", cfg.Services.InstrumentServicePort)
-    if err != nil {
-        logger.Fatal("failed to listen", zap.Error(err))
-    }
+	db, err := postgres.NewConnection(cfg.Database)
+	if err != nil {
+		logger.Fatal("failed to connect to database", zap.Error(err))
+	}
+	defer db.Close() 
 
-    stop := make(chan os.Signal, 1)
-    signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	repo := postgres.NewMarketRepository(db)
 
-    go func() {
-        logger.Info("SpotService started", zap.String("address", cfg.Services.InstrumentServicePort)) 
-        if err := grpcServer.Serve(lis); err != nil {
-            logger.Error("failed to serve", zap.Error(err))
-            select {
-            case stop <- syscall.SIGTERM:
-            default:
-            }
-        }
-    }()
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
 
-    <-stop
-    logger.Info("Shutting down gracefully...")
-
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-
-    if err := rdb.Ping(ctx).Err(); err != nil {
-        logger.Fatal("failed to connect to redis", zap.Error(err))
-    }
-
-    logger.Info("Redis connected successfully")
+	ctxPing, cancelPing := context.WithTimeout(context.Background(), 3*time.Second)
+	if err := rdb.Ping(ctxPing).Err(); err != nil {
+		cancelPing()
+		logger.Fatal("failed to connect to Redis", zap.Error(err))
+	}
+	cancelPing()
+	logger.Info("Redis connected successfully")
+	
 	defer func() { _ = rdb.Close() }()
 
-    shutdownDone := make(chan struct{})
-    go func() {
-        grpcServer.GracefulStop()
-        close(shutdownDone)
-    }()
+	marketCache := redisAdapter.NewMarketCache(rdb)
+	jwtValidator := auth.NewTokenValidator(cfg.JWT.Secret)
+	marketService := service.NewMarketService(repo, marketCache)  
+	
+	skipMethods := []string{
+		"/spot.v1.SpotInstrumentService/ListMarkets",   
+	}
+	grpcHandler := handler.NewMarketHandler(marketService)  
 
-    select {
-    case <-shutdownDone:
-        logger.Info("Server stopped gracefully")
-    case <-ctx.Done():
-        logger.Info("Shutdown timeout, forcing stop")
-        grpcServer.Stop()
-    }
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			interceptor.PanicRecoveryInterceptor(logger),
+			interceptor.XRequestIDInterceptor(),
+			interceptor.LoggerInterceptor(logger),
+			interceptor.AuthInterceptor(jwtValidator, logger, skipMethods), 
+		),
+		grpc.ChainStreamInterceptor(
+			interceptor.PanicRecoveryStreamInterceptor(logger),
+			interceptor.XRequestIDStreamInterceptor(),
+			interceptor.LoggerStreamInterceptor(logger),
+			interceptor.AuthStreamInterceptor(jwtValidator, logger, skipMethods),
+		),
+	)
+
+	pb.RegisterSpotInstrumentServiceServer(grpcServer, grpcHandler)
+	reflection.Register(grpcServer)
+
+	lis, err := net.Listen("tcp", cfg.Services.InstrumentServicePort)
+	if err != nil {
+		logger.Fatal("failed to listen", zap.Error(err))
+	}
+
+	logger.Info("SpotService started", zap.String("address", cfg.Services.InstrumentServicePort)) 
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			logger.Error("failed to serve", zap.Error(err))
+			select {
+			case stop <- syscall.SIGTERM:
+			default:
+			}
+		}
+	}()
+
+	<-stop
+	logger.Info("Shutting down gracefully...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	shutdownDone := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(shutdownDone)
+	}()
+
+	select {
+	case <-shutdownDone:
+		logger.Info("Server stopped gracefully")
+	case <-ctx.Done():
+		logger.Info("Shutdown timeout, forcing stop")
+		grpcServer.Stop()
+	}
+	
 }

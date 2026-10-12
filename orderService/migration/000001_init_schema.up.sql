@@ -15,17 +15,14 @@ CREATE TABLE IF NOT EXISTS orders (
     order_id VARCHAR(100) PRIMARY KEY,
     user_id VARCHAR(100) NOT NULL,
     market_id VARCHAR(100) NOT NULL,
-    order_name VARCHAR(255), -- Добавлено, так как есть в твоем proto
+    order_name VARCHAR(255), 
     order_type order_type_enum NOT NULL,
-    
-    -- Цена хранится как JSONB, так как в proto это common.v1.Money (Units, Nanos, CurrencyCode)
     price JSONB NOT NULL,
-    
-    -- Количество. Используем NUMERIC для точности, хотя в proto double. 
-    quantity DOUBLE PRECISION NOT NULL CHECK (quantity > 0),
+    quantity NUMERIC NOT NULL CHECK (quantity > 0),
     
     status order_status_enum NOT NULL DEFAULT 'CREATED',
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_orders_user_id ON orders(user_id);

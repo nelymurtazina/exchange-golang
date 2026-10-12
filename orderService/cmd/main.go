@@ -76,12 +76,12 @@ func main() {
 	pb.RegisterOrderServiceServer(grpcServer, grpcHandler)
 	reflection.Register(grpcServer)
 
-	lis, err := net.Listen("tcp", cfg.Services.InstrumentServicePort)
+	lis, err := net.Listen("tcp", cfg.Services.OrderServicePort)
 	if err != nil {
 		logger.Fatal("failed to listen", zap.Error(err))
 	}
 
-	logger.Info("SpotService started", zap.String("address", cfg.Services.InstrumentServicePort))
+	logger.Info("OrderService started", zap.String("address", cfg.Services.OrderServicePort))
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)

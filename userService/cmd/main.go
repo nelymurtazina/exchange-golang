@@ -13,7 +13,7 @@ import (
 	"test-project/shared/interceptor"
 	"test-project/userService/config"
 	"test-project/userService/internal/adapters/outbound/auth"
-	hendler "test-project/userService/internal/adapters/inbound/grpc"
+	handler "test-project/userService/internal/adapters/inbound/grpc"
 	"test-project/userService/internal/adapters/outbound/repository/postgres"
 	"test-project/userService/internal/core/service"
 
@@ -54,7 +54,7 @@ func main() {
 	passwordManager := auth.NewPasswordManager(cfg.Password.BcryptCost)
 	userService := service.NewUserService(repo, jwtManager, passwordManager)
 	
-	grpcHandler := hendler.NewUserHandler(userService)
+	grpcHandler := handler.NewUserHandler(userService)
 	skipMethods := []string{
 		"/user.v1.UserService/Register",  
 		"/user.v1.UserService/Login",    

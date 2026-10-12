@@ -29,7 +29,7 @@ func (o *OrderService) CreateOrder(ctx context.Context, input inbound.CreateOrde
 	if err := domain.ValidateID(input.UserID, domain.ErrInvalidUserID); err != nil {
 		return nil, err
 	}
-	if err := domain.ValidateID(input.MarketID, domain.ErrInvalidMarketID); err != nil {
+	if err := domain.ValidateMarketID(input.MarketID); err != nil {
 		return nil, err
 	}
 	if err := domain.ValidateType(input.Type); err != nil {

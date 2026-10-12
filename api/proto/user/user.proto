@@ -31,7 +31,7 @@ service UserService {
     // GetCurrentUser retrieves the authenticated user's full profile.
     // User information is extracted from the access token, not from the
     // request body.
-    rpc GetProfileCurrentUser(GetUserRequest) returns (GetProfilePreviewResponse);
+    rpc GetProfilePreview(GetUserRequest) returns (GetProfilePreviewResponse);
     
     // ValidateToken checks whether an access token is currently valid and
     // returns the subject's user_id and role if so. Used internally by the

@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS markets (
     enabled BOOLEAN NOT NULL DEFAULT true,
     price JSONB NOT NULL, 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_market_pair UNIQUE (base_asset, quote_asset)
 );
 
 CREATE INDEX IF NOT EXISTS idx_markets_enabled ON markets(enabled);
