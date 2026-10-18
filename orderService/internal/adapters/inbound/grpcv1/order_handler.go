@@ -3,10 +3,12 @@ package grpcv1
 import (
 	"context"
 	"errors"
-	pb "test-project/api/gen/order"
+
 	commonv1 "test-project/api/gen/common"
+	pb "test-project/api/gen/order"
 	"test-project/orderService/internal/core/domain"
 	"test-project/orderService/internal/core/ports/inbound"
+	"test-project/shared/interceptor" 
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,19 +21,30 @@ type OrderHandler struct {
 }
 
 func NewOrderHandler(service inbound.OrderService) *OrderHandler {
-	return &OrderHandler{
-		service: service,
-	}
+	return &OrderHandler{service: service}
 }
 
-func (h *OrderHandler) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderResponse, error){
-	output, err := h.service.CreateOrder(ctx, inbound.CreateOrderInput{
-		UserID:   req.UserId,
-		MarketID: req.MarketId,
-		Type:     mapOrderType(req.OrderType),
-		Price:    mapProtoMoneyToDomain(req.Price),
-		Quantity: req.Quantity,
-	})
+func (h *OrderHandler) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderResponse, error) {
+	userID, ok := interceptor.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "user not authenticated")
+	}
+
+	var quantity int64
+	if req.Quantity != nil {
+		quantity = req.Quantity.Units
+	}
+
+	input := inbound.CreateOrderInput{
+		UserID:         userID, 
+		MarketID:       req.MarketId,
+		Type:           mapOrderType(req.OrderType),
+		Price:          mapProtoMoneyToDomain(req.Price),
+		Quantity:       quantity,
+		IdempotencyKey: req.IdempotencyKey,
+	}
+
+	output, err := h.service.CreateOrder(ctx, input)
 	if err != nil {
 		return nil, mapDomainErrorToGRPC(err)
 	}
@@ -44,10 +57,17 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *pb.CreateOrderReque
 }
 
 func (h *OrderHandler) GetOrderStatus(ctx context.Context, req *pb.GetOrderStatusRequest) (*pb.GetOrderStatusResponse, error) {
-	order, err := h.service.GetOrderStatus(ctx, inbound.GetOrderStatusInput{
+	userID, ok := interceptor.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "user not authenticated")
+	}
+
+	input := inbound.GetOrderStatusInput{
 		OrderID: req.OrderId,
-		UserID:  req.UserId,
-	})
+		UserID:  userID,
+	}
+
+	order, err := h.service.GetOrderStatus(ctx, input)
 	if err != nil {
 		return nil, mapDomainErrorToGRPC(err)
 	}
@@ -64,7 +84,7 @@ func mapOrderType(orderType pb.OrderType) domain.OrderType {
 	case pb.OrderType_ORDER_TYPE_SELL:
 		return domain.OrderTypeSell
 	default:
-		return "" 
+		return ""
 	}
 }
 
@@ -80,6 +100,8 @@ func mapStatus(status domain.OrderStatus) pb.OrderStatus {
 		return pb.OrderStatus_ORDER_STATUS_CANCELLED
 	case domain.StatusRejected:
 		return pb.OrderStatus_ORDER_STATUS_REJECTED
+	case domain.StatusProcessing:
+		return pb.OrderStatus_ORDER_STATUS_PROCESSING
 	default:
 		return pb.OrderStatus_ORDER_STATUS_UNSPECIFIED
 	}
@@ -106,7 +128,7 @@ func mapDomainOrderToProto(order *domain.Order) *pb.Order {
 		MarketId:  order.MarketID,
 		OrderType: mapOrderTypeToProto(order.Type),
 		Price:     mapDomainMoneyToProto(order.Price),
-		Quantity:  order.Quantity,
+		Quantity:  &commonv1.Decimal{Units: order.Quantity},
 		Status:    mapStatus(order.Status),
 		CreatedAt: timestamppb.New(order.CreatedAt),
 	}
@@ -133,7 +155,6 @@ func mapDomainMoneyToProto(money domain.Money) *commonv1.Money {
 	}
 }
 
-
 func mapDomainErrorToGRPC(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrOrderNotFound):
@@ -143,8 +164,7 @@ func mapDomainErrorToGRPC(err error) error {
 		errors.Is(err, domain.ErrInvalidMarketID),
 		errors.Is(err, domain.ErrInvalidPrice),
 		errors.Is(err, domain.ErrInvalidQuantity),
-		errors.Is(err, domain.ErrInvalidOrderType),
-		errors.Is(err, domain.ErrInvalidOrderStatus):
+		errors.Is(err, domain.ErrInvalidOrderType):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrMarketNotAvailable):
 		return status.Error(codes.FailedPrecondition, "market is not available for trading")

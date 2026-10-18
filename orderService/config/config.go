@@ -15,6 +15,7 @@ type Config struct {
 	Database  DatabaseConfig
 	Services  ServicesConfig
 	Migration MigrationConfig
+	JWT      JWTConfig
 }
 
 type DatabaseConfig struct {
@@ -24,9 +25,16 @@ type DatabaseConfig struct {
 	Password        string
 	DBName          string
 	SSLMode         string
-	MaxOpenConns    int
-	MaxIdleConns    int
-	ConnMaxLifetime time.Duration
+	MaxOpenConns    int `env:"DB_MAX_OPEN_CONNS" envDefault:"25"`
+	MaxIdleConns    int `env:"DB_MAX_IDLE_CONNS" envDefault:"5"`
+	ConnMaxLifetime 	 time.Duration `env:"DB_CONN_MAX_LIFETIME" envDefault:"5"`
+	ConnMaxIdleTime      time.Duration `env:"DB_CONN_MAX_IDLE_TIME" envDefault:"15"`
+}
+
+type JWTConfig struct { 
+	Secret     string
+	AccessTTL  time.Duration
+	RefreshTTL time.Duration
 }
 
 type ServicesConfig struct {
@@ -52,33 +60,56 @@ func LoadConfig() (Config, error) {
 
 	cfg.Database.Host, err = getEnv("DB_HOST")
 	if err != nil { return cfg, err }
+	
 	cfg.Database.Port, err = getEnvAsInt("DB_PORT")
 	if err != nil { return cfg, err }
+	
 	cfg.Database.User, err = getEnv("DB_USER")
 	if err != nil { return cfg, err }
+	
 	cfg.Database.Password, err = getEnv("DB_PASSWORD")
 	if err != nil { return cfg, err }
+	
 	cfg.Database.DBName, err = getEnv("DB_NAME")
 	if err != nil { return cfg, err }
+	
 	cfg.Database.SSLMode, err = getEnv("DB_SSLMODE")
 	if err != nil { return cfg, err }
+	
 	cfg.Database.MaxOpenConns, err = getEnvAsInt("DB_MAX_OPEN_CONNS")
 	if err != nil { return cfg, err }
+	
 	cfg.Database.MaxIdleConns, err = getEnvAsInt("DB_MAX_IDLE_CONNS")
 	if err != nil { return cfg, err }
+
+	cfg.JWT.Secret, err = getEnv("JWT_SECRET")
+	if err != nil { return cfg, err }
 	
+
+	accessTTLStr, err := getEnv("JWT_ACCESS_TTL")
+	if err != nil { return cfg, err }
+	accessTTL, err := time.ParseDuration(accessTTLStr)
+	if err != nil { return cfg, fmt.Errorf("invalid JWT_ACCESS_TTL: %w", err) }
+	cfg.JWT.AccessTTL = accessTTL
+	
+	refreshTTLStr := getEnvWithDefault("JWT_REFRESH_TTL", "168h")
+	refreshTTL, err := time.ParseDuration(refreshTTLStr)
+	if err != nil { return cfg, fmt.Errorf("invalid JWT_REFRESH_TTL: %w", err) }
+	cfg.JWT.RefreshTTL = refreshTTL
+
 	lifetime, err := getEnvAsInt("DB_CONN_MAX_LIFETIME")
 	if err != nil { return cfg, err }
 	cfg.Database.ConnMaxLifetime = time.Duration(lifetime) * time.Minute
 
 	cfg.Services.OrderServicePort, err = getEnv("ORDER_SERVICE_PORT")
 	if err != nil { return cfg, err }
+	
 	cfg.Services.InstrumentServicePort, err = getEnv("SPOT_SERVICE_PORT")
 	if err != nil { return cfg, err }
+	
 	cfg.Services.UserServicePort, err = getEnv("USER_SERVICE_PORT")
 	if err != nil { return cfg, err }
 	
-
 	cfg.Services.SpotServiceAddr, err = getEnv("SPOT_SERVICE_ADDR")
 	if err != nil { return cfg, err }
 
@@ -153,4 +184,12 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 		return defaultValue
 	}
 	return boolValue
+}
+
+func getEnvWithDefault(key, defaultValue string) string {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return defaultValue
+	}
+	return value
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"test-project/userService/config"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -22,7 +21,7 @@ func NewConnection(cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
 	poolConfig.MaxConns = int32(cfg.MaxOpenConns)
 	poolConfig.MinConns = int32(cfg.MaxIdleConns)
 	poolConfig.MaxConnLifetime = cfg.ConnMaxLifetime
-	poolConfig.MaxConnIdleTime = time.Duration(cfg.MaxIdleConns)
+	poolConfig.MaxConnIdleTime = cfg.ConnMaxIdleTime
 
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)

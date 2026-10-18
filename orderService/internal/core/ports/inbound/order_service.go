@@ -6,12 +6,13 @@ import (
 )
 
 
-type CreateOrderInput struct{
-	UserID   string
-    MarketID string
-    Type     domain.OrderType
-    Price    domain.Money
-    Quantity float64
+type CreateOrderInput struct {
+	UserID         string 
+	MarketID       string
+	Type           domain.OrderType
+	Price          domain.Money
+	Quantity       int64 
+	IdempotencyKey string
 }
 
 type CreateOrderOutput struct{

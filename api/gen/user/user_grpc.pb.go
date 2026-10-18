@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -19,14 +20,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UserService_Register_FullMethodName              = "/user.v1.UserService/Register"
-	UserService_Login_FullMethodName                 = "/user.v1.UserService/Login"
-	UserService_Logout_FullMethodName                = "/user.v1.UserService/Logout"
-	UserService_GetUser_FullMethodName               = "/user.v1.UserService/GetUser"
-	UserService_GetProfileCurrentUser_FullMethodName = "/user.v1.UserService/GetProfileCurrentUser"
-	UserService_ValidateToken_FullMethodName         = "/user.v1.UserService/ValidateToken"
-	UserService_RefreshToken_FullMethodName          = "/user.v1.UserService/RefreshToken"
-	UserService_ChangePassword_FullMethodName        = "/user.v1.UserService/ChangePassword"
+	UserService_Register_FullMethodName          = "/user.v1.UserService/Register"
+	UserService_Login_FullMethodName             = "/user.v1.UserService/Login"
+	UserService_Logout_FullMethodName            = "/user.v1.UserService/Logout"
+	UserService_GetUser_FullMethodName           = "/user.v1.UserService/GetUser"
+	UserService_GetProfilePreview_FullMethodName = "/user.v1.UserService/GetProfilePreview"
+	UserService_RefreshToken_FullMethodName      = "/user.v1.UserService/RefreshToken"
+	UserService_ChangePassword_FullMethodName    = "/user.v1.UserService/ChangePassword"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -47,7 +47,7 @@ type UserServiceClient interface {
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	// Logout revokes the given refresh token. The associated access token
 	// remains valid until it naturally expires (stateless JWT limitation).
-	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
+	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// GetUser retrieves a user profile by user_id.
 	// Returns full profile if caller is admin, limited profile otherwise.
 	// The caller's identity is taken from the access token.
@@ -55,12 +55,7 @@ type UserServiceClient interface {
 	// GetCurrentUser retrieves the authenticated user's full profile.
 	// User information is extracted from the access token, not from the
 	// request body.
-	GetProfileCurrentUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetProfilePreviewResponse, error)
-	// ValidateToken checks whether an access token is currently valid and
-	// returns the subject's user_id and role if so. Used internally by the
-	// auth middleware and external services to validate tokens without
-	// re-implementing the signing secret.
-	ValidateToken(ctx context.Context, in *ValidateTokenRequest, opts ...grpc.CallOption) (*ValidateTokenResponse, error)
+	GetProfilePreview(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetProfilePreviewResponse, error)
 	// RefreshToken exchanges a valid, unused refresh token token for a new
 	// access/refresh token pair. The old refresh token is invalidated
 	// immediately on success (rotation policy); it cannot be reused.
@@ -99,9 +94,9 @@ func (c *userServiceClient) Login(ctx context.Context, in *LoginRequest, opts ..
 	return out, nil
 }
 
-func (c *userServiceClient) Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error) {
+func (c *userServiceClient) Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(LogoutResponse)
+	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, UserService_Logout_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -119,20 +114,10 @@ func (c *userServiceClient) GetUser(ctx context.Context, in *GetUserRequest, opt
 	return out, nil
 }
 
-func (c *userServiceClient) GetProfileCurrentUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetProfilePreviewResponse, error) {
+func (c *userServiceClient) GetProfilePreview(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetProfilePreviewResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetProfilePreviewResponse)
-	err := c.cc.Invoke(ctx, UserService_GetProfileCurrentUser_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *userServiceClient) ValidateToken(ctx context.Context, in *ValidateTokenRequest, opts ...grpc.CallOption) (*ValidateTokenResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ValidateTokenResponse)
-	err := c.cc.Invoke(ctx, UserService_ValidateToken_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, UserService_GetProfilePreview_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +162,7 @@ type UserServiceServer interface {
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
 	// Logout revokes the given refresh token. The associated access token
 	// remains valid until it naturally expires (stateless JWT limitation).
-	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
+	Logout(context.Context, *LogoutRequest) (*emptypb.Empty, error)
 	// GetUser retrieves a user profile by user_id.
 	// Returns full profile if caller is admin, limited profile otherwise.
 	// The caller's identity is taken from the access token.
@@ -185,12 +170,7 @@ type UserServiceServer interface {
 	// GetCurrentUser retrieves the authenticated user's full profile.
 	// User information is extracted from the access token, not from the
 	// request body.
-	GetProfileCurrentUser(context.Context, *GetUserRequest) (*GetProfilePreviewResponse, error)
-	// ValidateToken checks whether an access token is currently valid and
-	// returns the subject's user_id and role if so. Used internally by the
-	// auth middleware and external services to validate tokens without
-	// re-implementing the signing secret.
-	ValidateToken(context.Context, *ValidateTokenRequest) (*ValidateTokenResponse, error)
+	GetProfilePreview(context.Context, *GetUserRequest) (*GetProfilePreviewResponse, error)
 	// RefreshToken exchanges a valid, unused refresh token token for a new
 	// access/refresh token pair. The old refresh token is invalidated
 	// immediately on success (rotation policy); it cannot be reused.
@@ -215,17 +195,14 @@ func (UnimplementedUserServiceServer) Register(context.Context, *RegisterRequest
 func (UnimplementedUserServiceServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Login not implemented")
 }
-func (UnimplementedUserServiceServer) Logout(context.Context, *LogoutRequest) (*LogoutResponse, error) {
+func (UnimplementedUserServiceServer) Logout(context.Context, *LogoutRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method Logout not implemented")
 }
 func (UnimplementedUserServiceServer) GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUser not implemented")
 }
-func (UnimplementedUserServiceServer) GetProfileCurrentUser(context.Context, *GetUserRequest) (*GetProfilePreviewResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetProfileCurrentUser not implemented")
-}
-func (UnimplementedUserServiceServer) ValidateToken(context.Context, *ValidateTokenRequest) (*ValidateTokenResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ValidateToken not implemented")
+func (UnimplementedUserServiceServer) GetProfilePreview(context.Context, *GetUserRequest) (*GetProfilePreviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetProfilePreview not implemented")
 }
 func (UnimplementedUserServiceServer) RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RefreshToken not implemented")
@@ -326,38 +303,20 @@ func _UserService_GetUser_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _UserService_GetProfileCurrentUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _UserService_GetProfilePreview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetUserRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UserServiceServer).GetProfileCurrentUser(ctx, in)
+		return srv.(UserServiceServer).GetProfilePreview(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UserService_GetProfileCurrentUser_FullMethodName,
+		FullMethod: UserService_GetProfilePreview_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).GetProfileCurrentUser(ctx, req.(*GetUserRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _UserService_ValidateToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ValidateTokenRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(UserServiceServer).ValidateToken(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: UserService_ValidateToken_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).ValidateToken(ctx, req.(*ValidateTokenRequest))
+		return srv.(UserServiceServer).GetProfilePreview(ctx, req.(*GetUserRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -422,12 +381,8 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _UserService_GetUser_Handler,
 		},
 		{
-			MethodName: "GetProfileCurrentUser",
-			Handler:    _UserService_GetProfileCurrentUser_Handler,
-		},
-		{
-			MethodName: "ValidateToken",
-			Handler:    _UserService_ValidateToken_Handler,
+			MethodName: "GetProfilePreview",
+			Handler:    _UserService_GetProfilePreview_Handler,
 		},
 		{
 			MethodName: "RefreshToken",

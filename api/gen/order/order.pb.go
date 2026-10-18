@@ -84,6 +84,7 @@ const (
 	OrderStatus_ORDER_STATUS_FILLED      OrderStatus = 3
 	OrderStatus_ORDER_STATUS_CANCELLED   OrderStatus = 4
 	OrderStatus_ORDER_STATUS_REJECTED    OrderStatus = 5
+	OrderStatus_ORDER_STATUS_PROCESSING  OrderStatus = 6
 )
 
 // Enum value maps for OrderStatus.
@@ -95,6 +96,7 @@ var (
 		3: "ORDER_STATUS_FILLED",
 		4: "ORDER_STATUS_CANCELLED",
 		5: "ORDER_STATUS_REJECTED",
+		6: "ORDER_STATUS_PROCESSING",
 	}
 	OrderStatus_value = map[string]int32{
 		"ORDER_STATUS_UNSPECIFIED": 0,
@@ -103,6 +105,7 @@ var (
 		"ORDER_STATUS_FILLED":      3,
 		"ORDER_STATUS_CANCELLED":   4,
 		"ORDER_STATUS_REJECTED":    5,
+		"ORDER_STATUS_PROCESSING":  6,
 	}
 )
 
@@ -140,12 +143,11 @@ type Order struct {
 	OrderId       string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
 	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	MarketId      string                 `protobuf:"bytes,3,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
-	OrderName     string                 `protobuf:"bytes,4,opt,name=order_name,json=orderName,proto3" json:"order_name,omitempty"`
-	OrderType     OrderType              `protobuf:"varint,5,opt,name=order_type,json=orderType,proto3,enum=order.v1.OrderType" json:"order_type,omitempty"`
-	Price         *common.Money          `protobuf:"bytes,6,opt,name=price,proto3" json:"price,omitempty"`
-	Quantity      float64                `protobuf:"fixed64,7,opt,name=quantity,proto3" json:"quantity,omitempty"`
-	Status        OrderStatus            `protobuf:"varint,8,opt,name=status,proto3,enum=order.v1.OrderStatus" json:"status,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	OrderType     OrderType              `protobuf:"varint,4,opt,name=order_type,json=orderType,proto3,enum=order.v1.OrderType" json:"order_type,omitempty"`
+	Price         *common.Money          `protobuf:"bytes,5,opt,name=price,proto3" json:"price,omitempty"`
+	Quantity      *common.Decimal        `protobuf:"bytes,6,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	Status        OrderStatus            `protobuf:"varint,7,opt,name=status,proto3,enum=order.v1.OrderStatus" json:"status,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -201,13 +203,6 @@ func (x *Order) GetMarketId() string {
 	return ""
 }
 
-func (x *Order) GetOrderName() string {
-	if x != nil {
-		return x.OrderName
-	}
-	return ""
-}
-
 func (x *Order) GetOrderType() OrderType {
 	if x != nil {
 		return x.OrderType
@@ -222,11 +217,11 @@ func (x *Order) GetPrice() *common.Money {
 	return nil
 }
 
-func (x *Order) GetQuantity() float64 {
+func (x *Order) GetQuantity() *common.Decimal {
 	if x != nil {
 		return x.Quantity
 	}
-	return 0
+	return nil
 }
 
 func (x *Order) GetStatus() OrderStatus {
@@ -245,14 +240,15 @@ func (x *Order) GetCreatedAt() *timestamppb.Timestamp {
 
 // CreateOrderRequest contains the data needed to create a new trading order.
 type CreateOrderRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	MarketId      string                 `protobuf:"bytes,2,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
-	OrderType     OrderType              `protobuf:"varint,3,opt,name=order_type,json=orderType,proto3,enum=order.v1.OrderType" json:"order_type,omitempty"`
-	Price         *common.Money          `protobuf:"bytes,4,opt,name=price,proto3" json:"price,omitempty"`
-	Quantity      float64                `protobuf:"fixed64,5,opt,name=quantity,proto3" json:"quantity,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	UserId         string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	MarketId       string                 `protobuf:"bytes,2,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
+	OrderType      OrderType              `protobuf:"varint,3,opt,name=order_type,json=orderType,proto3,enum=order.v1.OrderType" json:"order_type,omitempty"`
+	Price          *common.Money          `protobuf:"bytes,4,opt,name=price,proto3" json:"price,omitempty"`
+	Quantity       *common.Decimal        `protobuf:"bytes,5,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateOrderRequest) Reset() {
@@ -313,11 +309,18 @@ func (x *CreateOrderRequest) GetPrice() *common.Money {
 	return nil
 }
 
-func (x *CreateOrderRequest) GetQuantity() float64 {
+func (x *CreateOrderRequest) GetQuantity() *common.Decimal {
 	if x != nil {
 		return x.Quantity
 	}
-	return 0
+	return nil
+}
+
+func (x *CreateOrderRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
 }
 
 // CreateOrderResponse is returned after successfully creating an order.
@@ -385,7 +388,6 @@ func (x *CreateOrderResponse) GetMessage() string {
 type GetOrderStatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	OrderId       string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -423,13 +425,6 @@ func (*GetOrderStatusRequest) Descriptor() ([]byte, []int) {
 func (x *GetOrderStatusRequest) GetOrderId() string {
 	if x != nil {
 		return x.OrderId
-	}
-	return ""
-}
-
-func (x *GetOrderStatusRequest) GetUserId() string {
-	if x != nil {
-		return x.UserId
 	}
 	return ""
 }
@@ -483,48 +478,46 @@ var File_order_order_proto protoreflect.FileDescriptor
 
 const file_order_order_proto_rawDesc = "" +
 	"\n" +
-	"\x11order/order.proto\x12\border.v1\x1a\x12common/money.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17validate/validate.proto\"\x86\x03\n" +
-	"\x05Order\x12$\n" +
-	"\border_id\x18\x01 \x01(\tB\t\xfaB\x06r\x04\x10\x01\x18dR\aorderId\x12!\n" +
+	"\x11order/order.proto\x12\border.v1\x1a\x12common/money.proto\x1a\x14common/decimal.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17validate/validate.proto\"\xfa\x02\n" +
+	"\x05Order\x12#\n" +
+	"\border_id\x18\x01 \x01(\tB\b\xfaB\x05r\x03\xb0\x01\x01R\aorderId\x12!\n" +
 	"\auser_id\x18\x02 \x01(\tB\b\xfaB\x05r\x03\xb0\x01\x01R\x06userId\x123\n" +
-	"\tmarket_id\x18\x03 \x01(\tB\x16\xfaB\x13r\x112\x0f^[A/Z]+-[A/Z]+$R\bmarketId\x12\x1d\n" +
+	"\tmarket_id\x18\x03 \x01(\tB\x16\xfaB\x13r\x112\x0f^[A-Z]+-[A-Z]+$R\bmarketId\x122\n" +
 	"\n" +
-	"order_name\x18\x04 \x01(\tR\torderName\x122\n" +
+	"order_type\x18\x04 \x01(\x0e2\x13.order.v1.OrderTypeR\torderType\x12&\n" +
+	"\x05price\x18\x05 \x01(\v2\x10.common.v1.MoneyR\x05price\x12.\n" +
+	"\bquantity\x18\x06 \x01(\v2\x12.common.v1.DecimalR\bquantity\x12-\n" +
+	"\x06status\x18\a \x01(\x0e2\x15.order.v1.OrderStatusR\x06status\x129\n" +
 	"\n" +
-	"order_type\x18\x05 \x01(\x0e2\x13.order.v1.OrderTypeR\torderType\x12&\n" +
-	"\x05price\x18\x06 \x01(\v2\x10.common.v1.MoneyR\x05price\x12\x1a\n" +
-	"\bquantity\x18\a \x01(\x01R\bquantity\x12-\n" +
-	"\x06status\x18\b \x01(\x0e2\x15.order.v1.OrderStatusR\x06status\x129\n" +
-	"\n" +
-	"created_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xe5\x01\n" +
-	"\x12CreateOrderRequest\x12\"\n" +
-	"\auser_id\x18\x01 \x01(\tB\t\xfaB\x06r\x04\x10\x01\x18dR\x06userId\x123\n" +
-	"\tmarket_id\x18\x02 \x01(\tB\x16\xfaB\x13r\x112\x0f^[A/Z]+-[A/Z]+$R\bmarketId\x122\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xab\x02\n" +
+	"\x12CreateOrderRequest\x12!\n" +
+	"\auser_id\x18\x01 \x01(\tB\b\xfaB\x05r\x03\xb0\x01\x01R\x06userId\x123\n" +
+	"\tmarket_id\x18\x02 \x01(\tB\x16\xfaB\x13r\x112\x0f^[A-Z]+-[A-Z]+$R\bmarketId\x122\n" +
 	"\n" +
 	"order_type\x18\x03 \x01(\x0e2\x13.order.v1.OrderTypeR\torderType\x12&\n" +
-	"\x05price\x18\x04 \x01(\v2\x10.common.v1.MoneyR\x05price\x12\x1a\n" +
-	"\bquantity\x18\x05 \x01(\x01R\bquantity\"\x84\x01\n" +
-	"\x13CreateOrderResponse\x12$\n" +
-	"\border_id\x18\x01 \x01(\tB\t\xfaB\x06r\x04\x10\x01\x18dR\aorderId\x12-\n" +
+	"\x05price\x18\x04 \x01(\v2\x10.common.v1.MoneyR\x05price\x12.\n" +
+	"\bquantity\x18\x05 \x01(\v2\x12.common.v1.DecimalR\bquantity\x121\n" +
+	"\x0fidempotency_key\x18\x06 \x01(\tB\b\xfaB\x05r\x03\xb0\x01\x01R\x0eidempotencyKey\"\x83\x01\n" +
+	"\x13CreateOrderResponse\x12#\n" +
+	"\border_id\x18\x01 \x01(\tB\b\xfaB\x05r\x03\xb0\x01\x01R\aorderId\x12-\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x15.order.v1.OrderStatusR\x06status\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage\"a\n" +
-	"\x15GetOrderStatusRequest\x12$\n" +
-	"\border_id\x18\x01 \x01(\tB\t\xfaB\x06r\x04\x10\x01\x18dR\aorderId\x12\"\n" +
-	"\auser_id\x18\x02 \x01(\tB\t\xfaB\x06r\x04\x10\x01\x18dR\x06userId\"?\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"<\n" +
+	"\x15GetOrderStatusRequest\x12#\n" +
+	"\border_id\x18\x01 \x01(\tB\b\xfaB\x05r\x03\xb0\x01\x01R\aorderId\"?\n" +
 	"\x16GetOrderStatusResponse\x12%\n" +
 	"\x05order\x18\x01 \x01(\v2\x0f.order.v1.OrderR\x05order*P\n" +
 	"\tOrderType\x12\x1a\n" +
 	"\x16ORDER_TYPE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eORDER_TYPE_BUY\x10\x01\x12\x13\n" +
-	"\x0fORDER_TYPE_SELL\x10\x02*\xaf\x01\n" +
+	"\x0fORDER_TYPE_SELL\x10\x02*\xcc\x01\n" +
 	"\vOrderStatus\x12\x1c\n" +
 	"\x18ORDER_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14ORDER_STATUS_CREATED\x10\x01\x12\x18\n" +
 	"\x14ORDER_STATUS_PENDING\x10\x02\x12\x17\n" +
 	"\x13ORDER_STATUS_FILLED\x10\x03\x12\x1a\n" +
 	"\x16ORDER_STATUS_CANCELLED\x10\x04\x12\x19\n" +
-	"\x15ORDER_STATUS_REJECTED\x10\x052\xaf\x01\n" +
+	"\x15ORDER_STATUS_REJECTED\x10\x05\x12\x1b\n" +
+	"\x17ORDER_STATUS_PROCESSING\x10\x062\xaf\x01\n" +
 	"\fOrderService\x12J\n" +
 	"\vCreateOrder\x12\x1c.order.v1.CreateOrderRequest\x1a\x1d.order.v1.CreateOrderResponse\x12S\n" +
 	"\x0eGetOrderStatus\x12\x1f.order.v1.GetOrderStatusRequest\x1a .order.v1.GetOrderStatusResponseB$Z\"test-project/api/gen/order;orderv1b\x06proto3"
@@ -552,26 +545,29 @@ var file_order_order_proto_goTypes = []any{
 	(*GetOrderStatusRequest)(nil),  // 5: order.v1.GetOrderStatusRequest
 	(*GetOrderStatusResponse)(nil), // 6: order.v1.GetOrderStatusResponse
 	(*common.Money)(nil),           // 7: common.v1.Money
-	(*timestamppb.Timestamp)(nil),  // 8: google.protobuf.Timestamp
+	(*common.Decimal)(nil),         // 8: common.v1.Decimal
+	(*timestamppb.Timestamp)(nil),  // 9: google.protobuf.Timestamp
 }
 var file_order_order_proto_depIdxs = []int32{
 	0,  // 0: order.v1.Order.order_type:type_name -> order.v1.OrderType
 	7,  // 1: order.v1.Order.price:type_name -> common.v1.Money
-	1,  // 2: order.v1.Order.status:type_name -> order.v1.OrderStatus
-	8,  // 3: order.v1.Order.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 4: order.v1.CreateOrderRequest.order_type:type_name -> order.v1.OrderType
-	7,  // 5: order.v1.CreateOrderRequest.price:type_name -> common.v1.Money
-	1,  // 6: order.v1.CreateOrderResponse.status:type_name -> order.v1.OrderStatus
-	2,  // 7: order.v1.GetOrderStatusResponse.order:type_name -> order.v1.Order
-	3,  // 8: order.v1.OrderService.CreateOrder:input_type -> order.v1.CreateOrderRequest
-	5,  // 9: order.v1.OrderService.GetOrderStatus:input_type -> order.v1.GetOrderStatusRequest
-	4,  // 10: order.v1.OrderService.CreateOrder:output_type -> order.v1.CreateOrderResponse
-	6,  // 11: order.v1.OrderService.GetOrderStatus:output_type -> order.v1.GetOrderStatusResponse
-	10, // [10:12] is the sub-list for method output_type
-	8,  // [8:10] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	8,  // 2: order.v1.Order.quantity:type_name -> common.v1.Decimal
+	1,  // 3: order.v1.Order.status:type_name -> order.v1.OrderStatus
+	9,  // 4: order.v1.Order.created_at:type_name -> google.protobuf.Timestamp
+	0,  // 5: order.v1.CreateOrderRequest.order_type:type_name -> order.v1.OrderType
+	7,  // 6: order.v1.CreateOrderRequest.price:type_name -> common.v1.Money
+	8,  // 7: order.v1.CreateOrderRequest.quantity:type_name -> common.v1.Decimal
+	1,  // 8: order.v1.CreateOrderResponse.status:type_name -> order.v1.OrderStatus
+	2,  // 9: order.v1.GetOrderStatusResponse.order:type_name -> order.v1.Order
+	3,  // 10: order.v1.OrderService.CreateOrder:input_type -> order.v1.CreateOrderRequest
+	5,  // 11: order.v1.OrderService.GetOrderStatus:input_type -> order.v1.GetOrderStatusRequest
+	4,  // 12: order.v1.OrderService.CreateOrder:output_type -> order.v1.CreateOrderResponse
+	6,  // 13: order.v1.OrderService.GetOrderStatus:output_type -> order.v1.GetOrderStatusResponse
+	12, // [12:14] is the sub-list for method output_type
+	10, // [10:12] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_order_order_proto_init() }

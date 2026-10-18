@@ -12,29 +12,21 @@ type RegisterInput struct {
 }
 
 type RegisterOutput struct {
-	User *domain.User
-	AccessToken string
-	RefreshToken string
-}
-
-type LoginInput struct{
-	Email string
-	Password string
-}
-
-type LoginOutput struct {
-	User *domain.User
+	User         *domain.User
 	AccessToken  string
 	RefreshToken string
 }
 
-type ValidateTokenInput struct {
-	Token string
+type LoginInput struct {
+	Email    string
+	Password string
 }
 
-type ValidateTokenOutput struct {
-	UserID string
-	Role   string
+type LoginOutput struct {
+	User         *domain.User
+	AccessToken  string
+	RefreshToken string
+	ExpiresIn    int64
 }
 
 type RefreshTokenInput struct {
@@ -42,35 +34,39 @@ type RefreshTokenInput struct {
 }
 
 type RefreshTokenOutput struct {
-	User domain.User
 	AccessToken  string
 	RefreshToken string
+	ExpiresIn    int64 
 }
 
-type ChangePasswordInput struct{
-	UserID string
+type ChangePasswordInput struct {
+	UserID          string
 	CurrentPassword string
-    NewPassword     string
+	NewPassword     string
 }
 type ChangePasswordOutput struct {
-    Success bool
+	Success bool
 }
 
 type GetProfilePreviewInput struct {
-    UserID string
+	UserID string
 }
 
 type GetProfilePreviewOutput struct {
-    ID       string
-    Username string
+	ID       string
+	Username string
 }
 
-type UserService interface{
+type LogoutInput struct {
+	UserID       string
+	RefreshToken string
+}
+
+type UserService interface {
 	Register(ctx context.Context, input RegisterInput) (*RegisterOutput, error)
 	Login(ctx context.Context, input LoginInput) (*LoginOutput, error)
-	Logout(ctx context.Context, userID string) error
+	Logout(ctx context.Context, input LogoutInput) error
 	GetUser(ctx context.Context, userID string) (*domain.User, error)
-	ValidateToken(ctx context.Context, input ValidateTokenInput) (*ValidateTokenOutput, error)
 	RefreshToken(ctx context.Context, input RefreshTokenInput) (*RefreshTokenOutput, error)
 	ChangePassword(ctx context.Context, input ChangePasswordInput) (*ChangePasswordOutput, error)
 	GetProfilePreview(ctx context.Context, input GetProfilePreviewInput) (*GetProfilePreviewOutput, error)

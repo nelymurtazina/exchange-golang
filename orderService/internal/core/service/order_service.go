@@ -1,8 +1,6 @@
 package service
 
 import (
-	// "context"
-	// "test-project/orderService/internal/core/ports/inbound"
 	"context"
 	"errors"
 	"fmt"
@@ -49,6 +47,10 @@ func (o *OrderService) CreateOrder(ctx context.Context, input inbound.CreateOrde
 	if marketInfo == nil || !marketInfo.Enabled {
 		return nil, domain.ErrMarketNotAvailable
 	}
+	if input.Quantity < marketInfo.MinQuantity {
+		return nil, domain.ErrInvalidQuantity
+	}
+
 	orderID := domain.NewOrderID()
 	now := time.Now()
 	order, err := domain.NewOrder(
@@ -58,7 +60,7 @@ func (o *OrderService) CreateOrder(ctx context.Context, input inbound.CreateOrde
 		input.Type,
 		input.Price,
 		input.Quantity,
-		domain.StatusCreated, 
+		domain.StatusCreated,
 		now,
 		now,
 	)

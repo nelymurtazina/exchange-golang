@@ -2,23 +2,22 @@ package auth
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-//сделать интерфейс для JWTManager
-
 type JWTManager struct {
-	secret       string
-	expiresHours int
+	secret     string
+	accessTTL  time.Duration
+	refreshTTL time.Duration
 }
 
-func NewJWTManager(secret string, expiresHours int) *JWTManager {
+func NewJWTManager(secret string, accessTTL, refreshTTL time.Duration) *JWTManager {
 	return &JWTManager{
-		secret:       secret,
-		expiresHours: expiresHours,
+		secret:     secret,
+		accessTTL:  accessTTL,
+		refreshTTL: refreshTTL,
 	}
 }
 
@@ -26,53 +25,27 @@ func (m *JWTManager) GenerateAccessToken(userID string, role string) (string, er
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"role":    role,
-		"exp":     time.Now().Add(time.Duration(m.expiresHours) * time.Hour).Unix(),
+		"exp":     time.Now().Add(m.accessTTL).Unix(),
 		"iat":     time.Now().Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(m.secret))
 }
 
-func (m *JWTManager) GenerateRefreshToken(userID string, role string) (string, error) {
+func (m *JWTManager) GenerateRefreshToken(userID string, role string, jti string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"role":    role,
-		"exp":     time.Now().Add(time.Duration(m.expiresHours) * time.Hour).Unix(),
+		"exp":     time.Now().Add(m.refreshTTL).Unix(),
 		"iat":     time.Now().Unix(),
 		"refresh": true,
+        "jti": jti,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(m.secret))
 }
 
-func (m *JWTManager) ValidateAccessToken(tokenString string) (claims map[string]any, err error) {  
-    token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-            return nil, errors.New("unexpected signing method")
-        }
-        return []byte(m.secret), nil
-    })
-    if err != nil {
-		return nil, err
-	}
-
-    if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-        if isRefresh, ok := claims["refresh"].(bool); ok && isRefresh {
-            return nil, errors.New("refresh token cannot be used as access token")
-        }
-        if _, ok := claims["user_id"].(string); !ok {
-            return nil, errors.New("invalid user_id in token")
-        }
-        if _, ok := claims["role"].(string); !ok {
-            return nil, errors.New("invalid user_id in token")
-        }
-        
-        return map[string]any(claims), nil
-    }
-    return nil, errors.New("invalid token")
-}
-
-func (m *JWTManager) ValidateRefreshToken(tokenString string) (string, string, error) {  // ← + role
+func (m *JWTManager) ValidateRefreshToken(tokenString string) (string, string, error) {  
     token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
         if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
             return nil, errors.New("unexpected signing method")
@@ -88,30 +61,26 @@ func (m *JWTManager) ValidateRefreshToken(tokenString string) (string, string, e
         if !ok || !isRefresh {
             return "", "", errors.New("invalid refresh token")
         }
+        
         userID, ok := claims["user_id"].(string)
         if !ok {
             return "", "", errors.New("invalid user_id in refresh token")
         }
-        role, _ := claims["role"].(string) 
-        return userID, role, nil  
+        
+        jti, ok := claims["jti"].(string)
+        if !ok || jti == "" {
+            return "", "", errors.New("missing jti in refresh token")
+        }
+        return userID, jti, nil  
     }
+    
     return "", "", errors.New("invalid refresh token")
 }
 
-func (m *JWTManager) RefreshToken(refreshToken string) (string, string, error) {
-    userID, role, err := m.ValidateRefreshToken(refreshToken) 
-    if err != nil {
-        return "", "", err
-    }
-    newAccessToken, err := m.GenerateAccessToken(userID, role)
-    if err != nil {
-        return "", "", fmt.Errorf("failed to generate new access token: %w", err)
-    }
+func (m *JWTManager) GetAccessTTL() time.Duration {
+	return m.accessTTL
+}
 
-    newRefreshToken, err := m.GenerateRefreshToken(userID, role)
-    if err != nil {
-        return "", "", fmt.Errorf("failed to generate new refresh token: %w", err)
-    }
-    return newAccessToken, newRefreshToken, nil 
-    
+func (m *JWTManager) GetRefreshTTL() time.Duration {
+	return m.refreshTTL
 }

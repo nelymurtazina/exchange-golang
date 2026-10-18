@@ -10,17 +10,20 @@ import (
 	"time"
 
 	pb "test-project/api/gen/order"
+	"test-project/shared/authorization"
+	"test-project/shared/interceptor"
 	"test-project/orderService/config"
-	"test-project/orderService/internal/adapters/grpc_client"
-	"test-project/orderService/internal/adapters/inbound/grpcv1"
+	handler "test-project/orderService/internal/adapters/inbound/grpcv1"
+	grpcClient "test-project/orderService/internal/adapters/outbound/grpc_client"
 	"test-project/orderService/internal/adapters/outbound/repository/postgres"
 	"test-project/orderService/internal/core/service"
-	"test-project/shared/interceptor"
 
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -32,11 +35,7 @@ func main() {
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
-	}
-
-	if err := cfg.Validate(); err != nil {
-		logger.Fatal("invalid config", zap.Error(err))
+		logger.Fatal("failed to load config", zap.Error(err))
 	}
 
 	db, err := postgres.NewConnection(cfg.Database)
@@ -45,31 +44,35 @@ func main() {
 	}
 	defer db.Close()
 
-	orderRepo := postgres.NewOrderRepository(db)
+	repo := postgres.NewOrderRepository(db)
 
-	conn, err := grpc.Dial(cfg.Services.SpotServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	spotConn, err := grpc.NewClient(cfg.Services.SpotServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		logger.Fatal("failed to connect to SpotService", zap.Error(err))
 	}
-	defer func() { _ = conn.Close() }()
+	defer spotConn.Close()
 
-	spotClient := grpc_client.NewSpotClient(conn)
+	spotClient := grpcClient.NewSpotClient(spotConn)
 
+	orderService := service.NewOrderService(repo, spotClient)
+	grpcHandler := handler.NewOrderHandler(orderService)
 
-	orderService := service.NewOrderService(orderRepo, spotClient)
+	jwtValidator := authorization.NewTokenValidator(cfg.JWT.Secret)
 
-	grpcHandler := grpcv1.NewOrderHandler(orderService)
+	skipMethodsMap := make(map[string]struct{})
 
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			interceptor.PanicRecoveryInterceptor(logger),
 			interceptor.XRequestIDInterceptor(),
 			interceptor.LoggerInterceptor(logger),
+			interceptor.AuthInterceptor(jwtValidator, logger, skipMethodsMap),
 		),
 		grpc.ChainStreamInterceptor(
 			interceptor.PanicRecoveryStreamInterceptor(logger),
 			interceptor.XRequestIDStreamInterceptor(),
 			interceptor.LoggerStreamInterceptor(logger),
+			interceptor.AuthStreamInterceptor(jwtValidator, logger, skipMethodsMap),
 		),
 	)
 
@@ -81,12 +84,11 @@ func main() {
 		logger.Fatal("failed to listen", zap.Error(err))
 	}
 
-	logger.Info("OrderService started", zap.String("address", cfg.Services.OrderServicePort))
-
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
+		logger.Info("OrderService started", zap.String("address", cfg.Services.OrderServicePort))
 		if err := grpcServer.Serve(lis); err != nil {
 			logger.Error("failed to serve", zap.Error(err))
 			select {

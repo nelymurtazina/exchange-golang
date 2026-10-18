@@ -16,9 +16,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create logger: %v", err)
 	}
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadMigrateConfig()
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
+		log.Fatalf("failed to load migrate config: %v", err)
 	}
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		cfg.Database.User,
@@ -29,17 +29,14 @@ func main() {
 		cfg.Database.SSLMode,
 	)
 
-	m, err := migrate.New(
-			"file://"+cfg.Migration.Path,
-			dsn,
-		)
-		if err != nil {
-			logger.Fatal("failed to create migrate instance", zap.Error(err))
-		}
-	
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-			logger.Fatal("failed to apply migrations", zap.Error(err))
-		}
+	m, err := migrate.New("file://"+cfg.Path, dsn)
+	if err != nil {
+		logger.Fatal("failed to create migrate instance", zap.Error(err))
+	}
 
-		logger.Info("Migrations applied successfully")
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		logger.Fatal("failed to apply migrations", zap.Error(err))
+	}
+
+	logger.Info("Migrations applied successfully")
 }

@@ -6,10 +6,12 @@ import (
 )
 
 var (
-	ValidUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
-	assetRegex = regexp.MustCompile(`^[A-Z]+$`)
-	RoleUser = "ROLE_USER"
-	RoleGuest = "ROLE_GUEST"
+	marketIDRegex = regexp.MustCompile(`^[A-Z]+-[A-Z]+$`)
+	marketNameRegex = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
+	assetRegex    = regexp.MustCompile(`^[A-Z]+$`)
+	RoleUser  = "user"
+	RoleAdmin = "admin"
+	RoleGuest = "guest"
 )
 
 type Money struct {
@@ -19,17 +21,19 @@ type Money struct {
 }
 
 type Market struct {
-	MarketID   string
-	Name       string
-	BaseAsset  string
-	QuoteAsset string
-	Enabled    bool
-	Price Money  
-	CreatedAt  time.Time
-	UpdatedAt time.Time
+	MarketID    string
+	Name        string
+	BaseAsset   string
+	QuoteAsset  string
+	Enabled     bool
+	Price       Money
+	MinQuantity int64 
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   *time.Time 
 }
 
-func NewMarket(marketID, name, baseAsset, quoteAsset string, price Money, createdAt, updatedAt time.Time) (*Market, error){
+func NewMarket(marketID, name, baseAsset, quoteAsset string, price Money, minQuantity int64, createdAt, updatedAt time.Time) (*Market, error){
 	if err := ValidateMarketID(marketID); err != nil{
 		return nil, err
 	}
@@ -45,24 +49,40 @@ func NewMarket(marketID, name, baseAsset, quoteAsset string, price Money, create
     if err := ValidatePrice(price); err != nil {
         return nil, err
     }
+	if minQuantity <= 0 {
+		return nil, ErrInvalidPrice 
+	}
 
 	return &Market{
-		MarketID: marketID,
-		Name: name,
-		BaseAsset: baseAsset,
-		QuoteAsset: quoteAsset,
-		Enabled: true,
-		Price: price,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
+		MarketID:    marketID,
+		Name:        name,
+		BaseAsset:   baseAsset,
+		QuoteAsset:  quoteAsset,
+		Enabled:     true,
+		Price:       price,
+		MinQuantity: minQuantity,
+		CreatedAt:   createdAt,
+		UpdatedAt:   updatedAt,
+		DeletedAt:   nil,
 	}, nil
+}
+
+func (m *Market) IsDeleted() bool {
+	return m.DeletedAt != nil
+}
+
+func (m *Market) SoftDelete() {
+	now := time.Now()
+	m.DeletedAt = &now
+	m.UpdatedAt = now
+	m.Enabled = false
 }
 
 func ValidateMarketID(marketID string) error{
 	if marketID == ""{
 		return ErrInvalidMarketID
 	}
-	if !ValidUsernameRegex.MatchString(marketID){
+	if !marketIDRegex.MatchString(marketID) {
 		return ErrInvalidMarketID
 	}
 	return nil
@@ -75,7 +95,7 @@ func ValidateMarketName(name string) error{
 	if len(name) < 1 || len(name) > 40{
 		return ErrInvalidMarketName
 	}
-	if !ValidUsernameRegex.MatchString(name){ 
+	if !marketNameRegex.MatchString(name) {
 		return ErrInvalidMarketName
 	}
 	return nil

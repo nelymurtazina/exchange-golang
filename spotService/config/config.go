@@ -31,9 +31,10 @@ type DatabaseConfig struct {
 	Password        string
 	DBName          string
 	SSLMode         string
-	MaxOpenConns    int
-	MaxIdleConns    int
-	ConnMaxLifetime time.Duration
+	MaxOpenConns    int `env:"DB_MAX_OPEN_CONNS" envDefault:"25"`
+	MaxIdleConns    int `env:"DB_MAX_IDLE_CONNS" envDefault:"5"`
+	ConnMaxLifetime 	 time.Duration `env:"DB_CONN_MAX_LIFETIME" envDefault:"5"`
+	ConnMaxIdleTime      time.Duration `env:"DB_CONN_MAX_IDLE_TIME" envDefault:"15"`
 }
 
 type JWTConfig struct {

@@ -14,7 +14,7 @@ import (
 	"test-project/shared/interceptor"
 	"test-project/spotService/config"
 	handler "test-project/spotService/internal/adapters/inbound/grpc"
-	"test-project/spotService/internal/adapters/outbound/auth"
+	"test-project/shared/authorization"
 	"test-project/spotService/internal/adapters/outbound/repository/postgres"
 	"test-project/spotService/internal/core/service"
 
@@ -29,9 +29,6 @@ import (
 )
 
 func main() {
-	redisHost := os.Getenv("REDIS_HOST")
-	fmt.Printf("DEBUG: REDIS_HOST = %q\n", redisHost)
-	
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("failed to create logger: %v", err)
@@ -72,11 +69,15 @@ func main() {
 	defer func() { _ = rdb.Close() }()
 
 	marketCache := redisAdapter.NewMarketCache(rdb)
-	jwtValidator := auth.NewTokenValidator(cfg.JWT.Secret)
+	jwtValidator := authorization.NewTokenValidator(cfg.JWT.Secret) 
 	marketService := service.NewMarketService(repo, marketCache)  
-	
-	skipMethods := []string{
-		"/spot.v1.SpotInstrumentService/ListMarkets",   
+
+	skipMethodsMap := make(map[string]struct{})
+	methodsToSkip := []string{
+		"/spot.v1.SpotInstrumentService/ListMarkets",
+	}
+	for _, m := range methodsToSkip {
+		skipMethodsMap[m] = struct{}{}
 	}
 	grpcHandler := handler.NewMarketHandler(marketService)  
 
@@ -85,13 +86,13 @@ func main() {
 			interceptor.PanicRecoveryInterceptor(logger),
 			interceptor.XRequestIDInterceptor(),
 			interceptor.LoggerInterceptor(logger),
-			interceptor.AuthInterceptor(jwtValidator, logger, skipMethods), 
+			interceptor.AuthInterceptor(jwtValidator, logger, skipMethodsMap), 
 		),
 		grpc.ChainStreamInterceptor(
 			interceptor.PanicRecoveryStreamInterceptor(logger),
 			interceptor.XRequestIDStreamInterceptor(),
 			interceptor.LoggerStreamInterceptor(logger),
-			interceptor.AuthStreamInterceptor(jwtValidator, logger, skipMethods),
+			interceptor.AuthStreamInterceptor(jwtValidator, logger, skipMethodsMap),
 		),
 	)
 

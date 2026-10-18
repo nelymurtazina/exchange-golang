@@ -3,15 +3,18 @@ package auth
 import "golang.org/x/crypto/bcrypt"
 
 type PasswordManager struct{
-	cost int
+	bcryptCost int
 }
 
 func NewPasswordManager(cost int) *PasswordManager {
-	return &PasswordManager{cost: cost}
+	return &PasswordManager{bcryptCost: cost}
 }
 
 func (p *PasswordManager) HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), p.cost) 
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), p.bcryptCost)
+	if err != nil {
+		return "", err
+	} 
 	return string(bytes), err
 }
 

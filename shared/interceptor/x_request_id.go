@@ -2,6 +2,7 @@ package interceptor
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -17,9 +18,10 @@ func XRequestIDInterceptor() grpc.UnaryServerInterceptor {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
-		requestID := getOrGenerateRequestID(ctx)
-		ctx = context.WithValue(ctx, requestIDKey{}, requestID)
-		return handler(ctx, req)
+		reqID := extractOrGenerateRequestID(ctx)
+		newCtx := context.WithValue(ctx, requestIDKey{}, reqID)
+
+		return handler(newCtx, req)
 	}
 }
 
@@ -30,31 +32,30 @@ func XRequestIDStreamInterceptor() grpc.StreamServerInterceptor {
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) error {
-		requestID := getOrGenerateRequestID(ss.Context())
-		ctx := context.WithValue(ss.Context(), requestIDKey{}, requestID)
-
-		wrappedStream := NewWrappedServerStream(ss, ctx)
-
+		reqID := extractOrGenerateRequestID(ss.Context())
+		newCtx := context.WithValue(ss.Context(), requestIDKey{}, reqID)
+		
+		wrappedStream := NewWrappedServerStream(ss, newCtx)
 		return handler(srv, wrappedStream)
 	}
 }
 
-func getOrGenerateRequestID(ctx context.Context) string {
+func extractOrGenerateRequestID(ctx context.Context) string {
 	md, ok := metadata.FromIncomingContext(ctx)
-	if ok {
-		if ids := md.Get("x-request-id"); len(ids) > 0 {
-			clientInboundID := ids[0]
-			if _, err := uuid.Parse(clientInboundID); err == nil {
-				return clientInboundID
-			}
-		}
+	if !ok {
+		return uuid.New().String()
 	}
-	return uuid.New().String()
-}
 
-func GetRequestID(ctx context.Context) string {
-	if id, ok := ctx.Value(requestIDKey{}).(string); ok {
-		return id
+	values := md.Get("x-request-id")
+	if len(values) == 0 || values[0] == "" {
+		return uuid.New().String() 
 	}
-	return ""
+
+	clientID := values[0]
+
+	if len(clientID) > 64 || strings.ContainsAny(clientID, " ,;") {
+		return uuid.New().String() 
+	}
+
+	return clientID
 }

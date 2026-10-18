@@ -1,4 +1,4 @@
-package handler 
+package handler
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type UserHandler struct {
@@ -18,7 +19,7 @@ type UserHandler struct {
 	service ports.UserService
 }
 
-func NewUserHandler(service ports.UserService) *UserHandler{
+func NewUserHandler(service ports.UserService) *UserHandler {
 	return &UserHandler{
 		service: service,
 	}
@@ -31,10 +32,10 @@ func (h *UserHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 		Password: req.Password,
 	})
 	if err != nil {
-		switch err {
-		case domain.ErrInvalidUsername, domain.ErrInvalidEmail:
+		switch {
+		case errors.Is(err, domain.ErrInvalidUsername), errors.Is(err, domain.ErrInvalidEmail), errors.Is(err, domain.ErrInvalidPassword):
 			return nil, status.Error(codes.InvalidArgument, err.Error())
-		case domain.ErrUserAlreadyExists:
+		case errors.Is(err, domain.ErrUserAlreadyExists), errors.Is(err, domain.ErrUsernameAlreadyExists):
 			return nil, status.Error(codes.AlreadyExists, err.Error())
 		default:
 			return nil, status.Error(codes.Internal, "internal error")
@@ -54,17 +55,20 @@ func (h *UserHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 		Password: req.Password,
 	})
 	if err != nil {
-		switch err {
-		case domain.ErrInvalidCredentials, domain.ErrInvalidEmail, domain.ErrInvalidPassword:
+		if errors.Is(err, domain.ErrInvalidCredentials) || 
+		   errors.Is(err, domain.ErrInvalidEmail) || 
+		   errors.Is(err, domain.ErrInvalidPassword) {
+		   
 			return nil, status.Error(codes.Unauthenticated, "invalid credentials")
-		default:
-			return nil, status.Error(codes.Internal, "internal error")
 		}
+		return nil, status.Error(codes.Internal, "internal server error")
 	}
+	
 
 	return &pb.LoginResponse{
-		AccessToken:        output.AccessToken,
+		AccessToken:  output.AccessToken,
 		RefreshToken: output.RefreshToken,
+		ExpiresIn:    output.ExpiresIn,
 	}, nil
 }
 
@@ -75,10 +79,10 @@ func (h *UserHandler) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.
     }
 	user, err := h.service.GetUser(ctx, userID)
 	if err != nil {
-		switch err {
-		case domain.ErrUserNotFound:
+		switch {
+		case errors.Is(err, domain.ErrUserNotFound):
 			return nil, status.Error(codes.NotFound, "user not found")
-		case domain.ErrInvalidUserID:
+		case errors.Is(err, domain.ErrInvalidUserID):
 			return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 		default:
 			return nil, status.Error(codes.Internal, "internal error")
@@ -93,46 +97,44 @@ func (h *UserHandler) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.
 	}, nil
 }
 
-func (h *UserHandler) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
-	output, err := h.service.ValidateToken(ctx, ports.ValidateTokenInput{
-		Token: req.AccessToken,
-	})
-	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "invalid token")
-	}
-
-	return &pb.ValidateTokenResponse{
-		UserId: output.UserID,
-		Role:   domainRoleToProto(output.Role),
-	}, nil
-}
 
 func (h *UserHandler) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
 	output, err := h.service.RefreshToken(ctx, ports.RefreshTokenInput{
 		RefreshToken: req.RefreshToken,
 	})
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
+		if errors.Is(err, domain.ErrInvalidToken) || errors.Is(err, domain.ErrInvalidUserID) {
+			return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
+		}
+		return nil, status.Error(codes.Internal, "internal error")
 	}
 
 	return &pb.RefreshTokenResponse{
 		AccessToken:        output.AccessToken,
 		RefreshToken: output.RefreshToken,
+		ExpiresIn:    output.ExpiresIn,
 	}, nil
 }
 
-func (h *UserHandler) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
+func (h *UserHandler) Logout(ctx context.Context, req *pb.LogoutRequest) (*emptypb.Empty, error) {
 	userID, ok := interceptor.GetUserIDFromContext(ctx)
-    if !ok {
-        return nil, status.Error(codes.Unauthenticated, "user not authenticated")
-    }
-	err := h.service.Logout(ctx, userID)
-    if err != nil {
-        return nil, status.Error(codes.Internal, "internal error")
-    }
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "user not authenticated")
+	}
 
-    return &pb.LogoutResponse{}, nil
-}
+	err := h.service.Logout(ctx, ports.LogoutInput{
+		UserID:       userID,
+		RefreshToken: req.RefreshToken,
+	})
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidToken) || errors.Is(err, domain.ErrInvalidUserID) {
+			return nil, status.Error(codes.Unauthenticated, "invalid token")
+		}
+		return nil, status.Error(codes.Internal, "internal error")
+	}
+
+	return &emptypb.Empty{}, nil
+} 	
 
 
 func domainRoleToProto(role string) pb.Role {

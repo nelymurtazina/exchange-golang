@@ -3,6 +3,7 @@ syntax = "proto3";
 package order.v1;
 option go_package = "test-project/api/gen/order;orderv1"; 
 import "common/money.proto";
+import "common/decimal.proto";
 import "google/protobuf/timestamp.proto";
 import "validate/validate.proto"; 
 
@@ -22,25 +23,21 @@ service OrderService {
 // It contains all information about a user's request to buy or sell an asset.
 message Order {
   string order_id = 1[
-        (validate.rules).string = { 
-            min_len: 1,
-            max_len: 100 
-        }
+        (validate.rules).string.uuid = true
     ];
   string user_id = 2[
         (validate.rules).string.uuid = true
     ];
   string market_id = 3[
       (validate.rules).string = {
-          pattern: "^[A/Z]+-[A/Z]+$" 
+          pattern: "^[A-Z]+-[A-Z]+$" 
       } 
   ];
-  string order_name = 4;
-  OrderType order_type = 5;
-  common.v1.Money price = 6;
-  double quantity = 7;
-  OrderStatus status = 8;
-  google.protobuf.Timestamp created_at = 10;
+  OrderType order_type = 4;
+  common.v1.Money price = 5;
+  common.v1.Decimal quantity = 6; 
+  OrderStatus status = 7;
+  google.protobuf.Timestamp created_at = 8;
 }
 
 // OrderType defines the direction of the trading order.
@@ -58,33 +55,31 @@ enum OrderStatus {
   ORDER_STATUS_FILLED = 3;
   ORDER_STATUS_CANCELLED = 4;
   ORDER_STATUS_REJECTED = 5;
-}
+  ORDER_STATUS_PROCESSING = 6;
+} 
 
 // CreateOrderRequest contains the data needed to create a new trading order.
 message CreateOrderRequest {
   string user_id = 1[
-        (validate.rules).string = { 
-            min_len: 1,
-            max_len: 100 
-        }
+        (validate.rules).string.uuid = true
     ];
   string market_id = 2[
       (validate.rules).string = {
-          pattern: "^[A/Z]+-[A/Z]+$" 
+          pattern: "^[A-Z]+-[A-Z]+$" 
       } 
   ];
   OrderType order_type = 3;
   common.v1.Money price = 4;
-  double quantity = 5;
+  common.v1.Decimal quantity = 5;
+  string idempotency_key = 6 [
+    (validate.rules).string.uuid = true
+  ];
 }
 
 // CreateOrderResponse is returned after successfully creating an order.
 message CreateOrderResponse {
   string order_id = 1[
-        (validate.rules).string = { 
-            min_len: 1,
-            max_len: 100 
-        }
+        (validate.rules).string.uuid = true
     ];
   OrderStatus status = 2;
   string message = 3;
@@ -93,17 +88,8 @@ message CreateOrderResponse {
 // GetOrderStatusRequest contains the identifiers needed to retrieve an order.
 message GetOrderStatusRequest {
   string order_id = 1 [
-    (validate.rules).string = { 
-        min_len: 1, 
-        max_len: 100 
-    }
-    ];
-  string user_id = 2 [
-    (validate.rules).string = { 
-        min_len: 1, 
-        max_len: 100
-    }
-    ];
+    (validate.rules).string.uuid = true
+  ];
 }
 
 // GetOrderStatusResponse contains the full order details.

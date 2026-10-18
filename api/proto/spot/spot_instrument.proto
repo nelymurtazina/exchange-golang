@@ -5,6 +5,7 @@ package spot.v1;
 option go_package = "test-project/api/gen/spot;spotv1";
 
 import "common/money.proto";
+import "common/decimal.proto";
 
 import "google/protobuf/timestamp.proto";
 import "validate/validate.proto";  
@@ -25,7 +26,7 @@ service SpotInstrumentService {
 message Market{
   string market_id = 1[
       (validate.rules).string = {
-          pattern: "^[A/Z]+-[A/Z]+$" 
+          pattern: "^[A-Z]+-[A-Z]+$" 
       } 
   ];
   string name = 2; 
@@ -47,6 +48,7 @@ message Market{
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp updated_at = 7;
   common.v1.Money price = 8;
+  common.v1.Decimal min_quantity = 9; 
 }
 
 // ListMarketsRequest contains parameters for retrieving a paginated list of markets.
@@ -70,7 +72,7 @@ message ListMarketsResponse {
 message GetMarketRequest {
     string market_id = 1 [
         (validate.rules).string = {
-            pattern: "^[A/Z]+-[A/Z]+$"  
+            pattern: "^[A-Z]+-[A-Z]+$"  
         }
     ];
 }
@@ -84,7 +86,7 @@ message GetMarketResponse{
 message DisableMarketRequest {
   string market_id = 1[
       (validate.rules).string = {
-          pattern: "^[A/Z]+-[A/Z]+$" 
+          pattern: "^[A-Z]+-[A-Z]+$" 
       } 
   ];
 }

@@ -4,6 +4,7 @@ package user.v1;
 option go_package = "test-project/api/gen/user;userv1"; 
 import "google/protobuf/timestamp.proto";
 import "validate/validate.proto";  
+import "google/protobuf/empty.proto"; 
  
 // UserService handles user identity: registration, login, token lifecycle,
 // and profile management.
@@ -21,7 +22,7 @@ service UserService {
     
     // Logout revokes the given refresh token. The associated access token
     // remains valid until it naturally expires (stateless JWT limitation).
-    rpc Logout(LogoutRequest) returns (LogoutResponse);
+    rpc Logout(LogoutRequest) returns (google.protobuf.Empty);
     
     // GetUser retrieves a user profile by user_id.
     // Returns full profile if caller is admin, limited profile otherwise.
@@ -32,13 +33,7 @@ service UserService {
     // User information is extracted from the access token, not from the
     // request body.
     rpc GetProfilePreview(GetUserRequest) returns (GetProfilePreviewResponse);
-    
-    // ValidateToken checks whether an access token is currently valid and
-    // returns the subject's user_id and role if so. Used internally by the
-    // auth middleware and external services to validate tokens without
-    // re-implementing the signing secret.
-    rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
-    
+
     // RefreshToken exchanges a valid, unused refresh token token for a new
     // access/refresh token pair. The old refresh token is invalidated
     // immediately on success (rotation policy); it cannot be reused.
@@ -126,20 +121,19 @@ message LoginRequest {
 message LoginResponse{
     string access_token = 1;
     string refresh_token = 2;
+    int64 expires_in = 3; //время жизни токена
 }
 
 // LogoutRequest contains the refresh token to be invalidated.
 message LogoutRequest{
     string refresh_token = 1[
         (validate.rules).string = {
-            min_len: 20
+            min_len: 50,
+            max_len: 500
         }
     ];
 }
 
-// LogoutResponse is returned when logout is successful.
-message LogoutResponse {
-}
 
 // GetCurrentUserRequest is empty as user ID is extracted from the access token.
 message GetUserRequest  {
@@ -156,26 +150,12 @@ message GetUserResponse{
   google.protobuf.Timestamp updated_at = 6;
 }
 
-// ValidateTokenRequest contains an access token to validate.
-message ValidateTokenRequest{
-    string access_token = 1 [
-        (validate.rules).string = {
-            min_len: 20
-        }
-    ]; 
-}
-
-// ValidateTokenResponse contains user information extracted from the token.
-message ValidateTokenResponse {
-  string user_id = 1;
-  Role role = 2;
-}
-
 // RefreshTokenRequest contains a refresh token to exchange for new tokens.
 message RefreshTokenRequest{
     string refresh_token = 1 [
         (validate.rules).string = {
-            min_len: 20
+            min_len: 50,
+            max_len: 500
         }
     ];
 }
@@ -184,6 +164,7 @@ message RefreshTokenRequest{
 message RefreshTokenResponse{
     string access_token = 1;
     string refresh_token = 2;
+    int64 expires_in = 3;
 }
 
 // ChangePasswordRequest contains passwords for changing the user's password.

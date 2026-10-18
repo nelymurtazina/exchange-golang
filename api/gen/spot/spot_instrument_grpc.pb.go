@@ -27,9 +27,16 @@ const (
 // SpotInstrumentServiceClient is the client API for SpotInstrumentService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// SpotInstrumentService manages trading pairs (instruments) on the spot market:
+// listing, retrieving details, and managing availability (enabling/disabling).
 type SpotInstrumentServiceClient interface {
+	// ListMarkets returns a paginated list of available trading pairs.
 	ListMarkets(ctx context.Context, in *ListMarketsRequest, opts ...grpc.CallOption) (*ListMarketsResponse, error)
+	// GetMarket retrieves detailed information about a specific trading pair by its ID.
 	GetMarket(ctx context.Context, in *GetMarketRequest, opts ...grpc.CallOption) (*GetMarketResponse, error)
+	// DisableMarket disables the specified trading pair (makes it unavailable for trading).
+	// Returns the updated market state.
 	DisableMarket(ctx context.Context, in *DisableMarketRequest, opts ...grpc.CallOption) (*DisableMarketResponse, error)
 }
 
@@ -74,9 +81,16 @@ func (c *spotInstrumentServiceClient) DisableMarket(ctx context.Context, in *Dis
 // SpotInstrumentServiceServer is the server API for SpotInstrumentService service.
 // All implementations must embed UnimplementedSpotInstrumentServiceServer
 // for forward compatibility.
+//
+// SpotInstrumentService manages trading pairs (instruments) on the spot market:
+// listing, retrieving details, and managing availability (enabling/disabling).
 type SpotInstrumentServiceServer interface {
+	// ListMarkets returns a paginated list of available trading pairs.
 	ListMarkets(context.Context, *ListMarketsRequest) (*ListMarketsResponse, error)
+	// GetMarket retrieves detailed information about a specific trading pair by its ID.
 	GetMarket(context.Context, *GetMarketRequest) (*GetMarketResponse, error)
+	// DisableMarket disables the specified trading pair (makes it unavailable for trading).
+	// Returns the updated market state.
 	DisableMarket(context.Context, *DisableMarketRequest) (*DisableMarketResponse, error)
 	mustEmbedUnimplementedSpotInstrumentServiceServer()
 }

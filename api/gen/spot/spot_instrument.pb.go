@@ -24,6 +24,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Market represents a trading pair (instrument) on the spot market.
 type Market struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MarketId      string                 `protobuf:"bytes,1,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
@@ -34,6 +35,7 @@ type Market struct {
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	Price         *common.Money          `protobuf:"bytes,8,opt,name=price,proto3" json:"price,omitempty"`
+	MinQuantity   *common.Decimal        `protobuf:"bytes,9,opt,name=min_quantity,json=minQuantity,proto3" json:"min_quantity,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -124,6 +126,14 @@ func (x *Market) GetPrice() *common.Money {
 	return nil
 }
 
+func (x *Market) GetMinQuantity() *common.Decimal {
+	if x != nil {
+		return x.MinQuantity
+	}
+	return nil
+}
+
+// ListMarketsRequest contains parameters for retrieving a paginated list of markets.
 type ListMarketsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PageSize      int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
@@ -176,6 +186,7 @@ func (x *ListMarketsRequest) GetPageToken() string {
 	return ""
 }
 
+// ListMarketsResponse contains the list of markets and pagination data.
 type ListMarketsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Markets       []*Market              `protobuf:"bytes,1,rep,name=markets,proto3" json:"markets,omitempty"`
@@ -228,6 +239,7 @@ func (x *ListMarketsResponse) GetNextPageToken() string {
 	return ""
 }
 
+// GetMarketRequest contains the ID of the requested market.
 type GetMarketRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MarketId      string                 `protobuf:"bytes,1,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
@@ -272,6 +284,7 @@ func (x *GetMarketRequest) GetMarketId() string {
 	return ""
 }
 
+// GetMarketResponse contains detailed information about the requested market.
 type GetMarketResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Market        *Market                `protobuf:"bytes,1,opt,name=market,proto3" json:"market,omitempty"`
@@ -316,6 +329,7 @@ func (x *GetMarketResponse) GetMarket() *Market {
 	return nil
 }
 
+// DisableMarketRequest contains the ID of the market to be disabled.
 type DisableMarketRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MarketId      string                 `protobuf:"bytes,1,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
@@ -360,6 +374,7 @@ func (x *DisableMarketRequest) GetMarketId() string {
 	return ""
 }
 
+// DisableMarketResponse returns the updated state of the market after disabling.
 type DisableMarketResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Market        *Market                `protobuf:"bytes,1,opt,name=market,proto3" json:"market,omitempty"`
@@ -408,20 +423,23 @@ var File_spot_spot_instrument_proto protoreflect.FileDescriptor
 
 const file_spot_spot_instrument_proto_rawDesc = "" +
 	"\n" +
-	"\x1aspot/spot_instrument.proto\x12\aspot.v1\x1a\x12common/money.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17validate/validate.proto\"\xc9\x02\n" +
+	"\x1aspot/spot_instrument.proto\x12\aspot.v1\x1a\x12common/money.proto\x1a\x14common/decimal.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17validate/validate.proto\"\xaa\x03\n" +
 	"\x06Market\x123\n" +
-	"\tmarket_id\x18\x01 \x01(\tB\x16\xfaB\x13r\x112\x0f^[A/Z]+-[A/Z]+$R\bmarketId\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
+	"\tmarket_id\x18\x01 \x01(\tB\x16\xfaB\x13r\x112\x0f^[A-Z]+-[A-Z]+$R\bmarketId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x122\n" +
 	"\n" +
-	"base_asset\x18\x03 \x01(\tR\tbaseAsset\x12\x1f\n" +
-	"\vquote_asset\x18\x04 \x01(\tR\n" +
+	"base_asset\x18\x03 \x01(\tB\x13\xfaB\x10r\x0e\x10\x02\x18\n" +
+	"2\b^[A-Z]+$R\tbaseAsset\x124\n" +
+	"\vquote_asset\x18\x04 \x01(\tB\x13\xfaB\x10r\x0e\x10\x02\x18\n" +
+	"2\b^[A-Z]+$R\n" +
 	"quoteAsset\x12\x18\n" +
 	"\aenabled\x18\x05 \x01(\bR\aenabled\x129\n" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12&\n" +
-	"\x05price\x18\b \x01(\v2\x10.common.v1.MoneyR\x05price\"[\n" +
+	"\x05price\x18\b \x01(\v2\x10.common.v1.MoneyR\x05price\x125\n" +
+	"\fmin_quantity\x18\t \x01(\v2\x12.common.v1.DecimalR\vminQuantity\"[\n" +
 	"\x12ListMarketsRequest\x12&\n" +
 	"\tpage_size\x18\x01 \x01(\x05B\t\xfaB\x06\x1a\x04\x18d(\x01R\bpageSize\x12\x1d\n" +
 	"\n" +
@@ -430,11 +448,11 @@ const file_spot_spot_instrument_proto_rawDesc = "" +
 	"\amarkets\x18\x01 \x03(\v2\x0f.spot.v1.MarketR\amarkets\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"G\n" +
 	"\x10GetMarketRequest\x123\n" +
-	"\tmarket_id\x18\x01 \x01(\tB\x16\xfaB\x13r\x112\x0f^[A/Z]+-[A/Z]+$R\bmarketId\"<\n" +
+	"\tmarket_id\x18\x01 \x01(\tB\x16\xfaB\x13r\x112\x0f^[A-Z]+-[A-Z]+$R\bmarketId\"<\n" +
 	"\x11GetMarketResponse\x12'\n" +
 	"\x06market\x18\x01 \x01(\v2\x0f.spot.v1.MarketR\x06market\"K\n" +
 	"\x14DisableMarketRequest\x123\n" +
-	"\tmarket_id\x18\x01 \x01(\tB\x16\xfaB\x13r\x112\x0f^[A/Z]+-[A/Z]+$R\bmarketId\"@\n" +
+	"\tmarket_id\x18\x01 \x01(\tB\x16\xfaB\x13r\x112\x0f^[A-Z]+-[A-Z]+$R\bmarketId\"@\n" +
 	"\x15DisableMarketResponse\x12'\n" +
 	"\x06market\x18\x01 \x01(\v2\x0f.spot.v1.MarketR\x06market2\xf5\x01\n" +
 	"\x15SpotInstrumentService\x12H\n" +
@@ -465,25 +483,27 @@ var file_spot_spot_instrument_proto_goTypes = []any{
 	(*DisableMarketResponse)(nil), // 6: spot.v1.DisableMarketResponse
 	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
 	(*common.Money)(nil),          // 8: common.v1.Money
+	(*common.Decimal)(nil),        // 9: common.v1.Decimal
 }
 var file_spot_spot_instrument_proto_depIdxs = []int32{
-	7, // 0: spot.v1.Market.created_at:type_name -> google.protobuf.Timestamp
-	7, // 1: spot.v1.Market.updated_at:type_name -> google.protobuf.Timestamp
-	8, // 2: spot.v1.Market.price:type_name -> common.v1.Money
-	0, // 3: spot.v1.ListMarketsResponse.markets:type_name -> spot.v1.Market
-	0, // 4: spot.v1.GetMarketResponse.market:type_name -> spot.v1.Market
-	0, // 5: spot.v1.DisableMarketResponse.market:type_name -> spot.v1.Market
-	1, // 6: spot.v1.SpotInstrumentService.ListMarkets:input_type -> spot.v1.ListMarketsRequest
-	3, // 7: spot.v1.SpotInstrumentService.GetMarket:input_type -> spot.v1.GetMarketRequest
-	5, // 8: spot.v1.SpotInstrumentService.DisableMarket:input_type -> spot.v1.DisableMarketRequest
-	2, // 9: spot.v1.SpotInstrumentService.ListMarkets:output_type -> spot.v1.ListMarketsResponse
-	4, // 10: spot.v1.SpotInstrumentService.GetMarket:output_type -> spot.v1.GetMarketResponse
-	6, // 11: spot.v1.SpotInstrumentService.DisableMarket:output_type -> spot.v1.DisableMarketResponse
-	9, // [9:12] is the sub-list for method output_type
-	6, // [6:9] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	7,  // 0: spot.v1.Market.created_at:type_name -> google.protobuf.Timestamp
+	7,  // 1: spot.v1.Market.updated_at:type_name -> google.protobuf.Timestamp
+	8,  // 2: spot.v1.Market.price:type_name -> common.v1.Money
+	9,  // 3: spot.v1.Market.min_quantity:type_name -> common.v1.Decimal
+	0,  // 4: spot.v1.ListMarketsResponse.markets:type_name -> spot.v1.Market
+	0,  // 5: spot.v1.GetMarketResponse.market:type_name -> spot.v1.Market
+	0,  // 6: spot.v1.DisableMarketResponse.market:type_name -> spot.v1.Market
+	1,  // 7: spot.v1.SpotInstrumentService.ListMarkets:input_type -> spot.v1.ListMarketsRequest
+	3,  // 8: spot.v1.SpotInstrumentService.GetMarket:input_type -> spot.v1.GetMarketRequest
+	5,  // 9: spot.v1.SpotInstrumentService.DisableMarket:input_type -> spot.v1.DisableMarketRequest
+	2,  // 10: spot.v1.SpotInstrumentService.ListMarkets:output_type -> spot.v1.ListMarketsResponse
+	4,  // 11: spot.v1.SpotInstrumentService.GetMarket:output_type -> spot.v1.GetMarketResponse
+	6,  // 12: spot.v1.SpotInstrumentService.DisableMarket:output_type -> spot.v1.DisableMarketResponse
+	10, // [10:13] is the sub-list for method output_type
+	7,  // [7:10] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_spot_spot_instrument_proto_init() }

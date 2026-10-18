@@ -59,11 +59,16 @@ func (h *MarketHandler) ListMarkets(ctx context.Context, req *pb.ListMarketsRequ
 }
 
 func (h *MarketHandler) GetMarket(ctx context.Context, req *pb.GetMarketRequest) (*pb.GetMarketResponse, error) {
+	role, ok := interceptor.GetUserRoleFromContext(ctx)
+	if !ok {
+		role = domain.RoleGuest
+	}
 	input := ports.GetMarketInput{
 		MarketID: req.MarketId,
+		UserRole: role,
 	}
 
-	output, err := h.service.GetMarketByID(ctx, input)
+	output, err := h.service.GetMarket(ctx, input)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidMarketID):
@@ -88,6 +93,32 @@ func (h *MarketHandler) GetMarket(ctx context.Context, req *pb.GetMarketRequest)
 	}, nil
 }
 
+func (h *MarketHandler) DisableMarket(ctx context.Context, req *pb.DisableMarketRequest) (*pb.DisableMarketResponse, error) {
+	role, ok := interceptor.GetUserRoleFromContext(ctx)
+	if !ok {
+		role = domain.RoleGuest
+	}
+	output, err := h.service.DisableMarket(ctx, ports.DisableMarketInput{
+		MarketID: req.MarketId,
+		UserRole: role,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidMarketID):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case errors.Is(err, domain.ErrMarketNotFound):
+			return nil, status.Error(codes.NotFound, "market not found")
+		case errors.Is(err, domain.ErrPermissionDenied):
+			return nil, status.Error(codes.PermissionDenied, "guests are not allowed to disable markets")
+		default:
+			return nil, status.Error(codes.Internal, "internal server error")
+		}
+	}
+	return &pb.DisableMarketResponse{
+		Market: toProtoMarket(output.Market),
+	}, nil
+}
+
 
 func toProtoMarket(m *domain.Market) *pb.Market {
     if m == nil {
@@ -101,6 +132,7 @@ func toProtoMarket(m *domain.Market) *pb.Market {
         QuoteAsset: m.QuoteAsset,
         Enabled:    m.Enabled,
         Price:      toProtoMoney(m.Price),
+        MinQuantity: &commonv1.Decimal{Units: int64(m.MinQuantity)},
         CreatedAt:  timestamppb.New(m.CreatedAt),
         UpdatedAt:  timestamppb.New(m.UpdatedAt),
     }

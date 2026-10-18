@@ -59,3 +59,11 @@ func (c *MarketCacheImpl) Set(ctx context.Context, market *domain.Market, expira
 
 	return nil
 }
+
+func (c *MarketCacheImpl) Delete(ctx context.Context, marketID string) error {
+	key := fmt.Sprintf("market:%s", marketID)
+	if err := c.client.Del(ctx, key).Err(); err != nil {
+		return fmt.Errorf("failed to delete market from cache: %w", err)
+	}
+	return nil
+}

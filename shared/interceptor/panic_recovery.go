@@ -17,7 +17,7 @@ func PanicRecoveryInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (resp interface{}, err error) {
-		requestID := GetRequestID(ctx)
+		requestID := extractOrGenerateRequestID(ctx)
 
 		defer func() {
 			if r := recover(); r != nil {
@@ -25,7 +25,7 @@ func PanicRecoveryInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 					zap.Any("panic", r),
 					zap.String("method", info.FullMethod),
 					zap.String("request_id", requestID),
-					zap.String("stack", string(debug.Stack())),
+					zap.String("stack", string(debug.Stack())), 
 				)
 				err = status.Errorf(codes.Internal, "internal server error")
 				resp = nil
@@ -44,7 +44,7 @@ func PanicRecoveryStreamInterceptor(logger *zap.Logger) grpc.StreamServerInterce
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) (err error) {
-		requestID := GetRequestID(ss.Context())
+		requestID := extractOrGenerateRequestID(ss.Context())
 
 		defer func() {
 			if r := recover(); r != nil {

@@ -17,7 +17,7 @@ func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
-		requestID := GetRequestID(ctx)
+		requestID := extractOrGenerateRequestID(ctx)
 		startTime := time.Now()
 		
 		logger.Debug("gRPC request started",
@@ -28,31 +28,8 @@ func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 		resp, err := handler(ctx, req)
 
 		duration := time.Since(startTime)
-		code := status.Code(err)
-
-		if err != nil {
-			logFields := []zap.Field{
-				zap.String("method", info.FullMethod),
-				zap.String("request_id", requestID),
-				zap.Duration("duration", duration),
-				zap.String("status_code", code.String()),
-				zap.Error(err),
-			}
-			// Если ошибка сервера — пишем Error.
-			// Если пользователь ошибся — пишем Warn.
-			if code == codes.Internal {
-				logger.Error("gRPC request failed with internal error", logFields...)
-			} else {
-				logger.Warn("gRPC request completed with client error", logFields...)
-			}
-		} else {
-			logger.Debug("gRPC request completed",
-                zap.String("request_id", requestID),
-                zap.String("method", info.FullMethod),
-                zap.Duration("duration", duration),
-                zap.String("status_code", code.String()),
-            )
-		}
+		
+		logGRPCRequest(logger, ctx, info.FullMethod, duration, err)
 		return resp, err
 	}
 }
@@ -65,8 +42,9 @@ func LoggerStreamInterceptor(logger *zap.Logger) grpc.StreamServerInterceptor {
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) error {
-		requestID := GetRequestID(ss.Context())
+		requestID := extractOrGenerateRequestID(ss.Context())
 		startTime := time.Now()
+		ctx := ss.Context()
 
 		logger.Debug("gRPC stream started",
 			zap.String("request_id", requestID),
@@ -75,30 +53,59 @@ func LoggerStreamInterceptor(logger *zap.Logger) grpc.StreamServerInterceptor {
 		err := handler(srv, ss)
 
 		duration := time.Since(startTime)
-		code := status.Code(err)
-
-		if err != nil {
-			logFields := []zap.Field{
-				zap.String("method", info.FullMethod),
-				zap.String("request_id", requestID),
-				zap.Duration("duration", duration),
-				zap.String("status_code", code.String()),
-				zap.Error(err),
-			}
-			if code == codes.Internal {
-				logger.Error("gRPC request failed with internal error", logFields...)
-			} else {
-				logger.Warn("gRPC request completed with client error", logFields...)
-			}
-		} else {
-			logger.Debug("gRPC stream completed", 
-                zap.String("request_id", requestID),
-                zap.String("method", info.FullMethod),
-                zap.Duration("duration", duration),
-                zap.String("status_code", code.String()),
-            )
-		}
+		
+		logGRPCRequest(logger, ctx, info.FullMethod, duration, err)
 
 		return err
+	}
+}
+
+
+
+func logGRPCRequest(logger *zap.Logger, ctx context.Context, method string, duration time.Duration, err error) {
+	requestID := extractOrGenerateRequestID(ctx)
+	code := status.Code(err)
+
+	logFields := []zap.Field{
+		zap.String("method", method),
+		zap.String("request_id", requestID),
+		zap.Duration("duration", duration),
+		zap.String("status_code", code.String()),
+	}
+
+	if err != nil {
+		logFields = append(logFields, zap.Error(err))
+
+		if code == codes.Internal || code == codes.Unknown || code == codes.Unavailable || code == codes.DataLoss {
+			logger.Error("gRPC request failed with server error", logFields...)
+			return
+		}
+
+		if isExpectedClientError(code) {
+			logger.Warn("gRPC request completed with expected client error", logFields...)
+			return
+		}
+
+		logger.Warn("gRPC request completed with anomalous client error", logFields...)
+		
+	} else {
+		logger.Debug("gRPC request completed successfully",
+			append(logFields, zap.String("status", "OK"))...,
+		)
+	}
+}
+
+
+func isExpectedClientError(code codes.Code) bool {
+	switch code {
+	case codes.InvalidArgument,      // Ошибка валидации (неверный email, пароль и т.д.)
+		codes.NotFound,              // Ресурс не найден (пользователь, ордер)
+		codes.Unauthenticated,       // Токен отсутствует или невалиден
+		codes.PermissionDenied,      // Нет прав на действие
+		codes.AlreadyExists,         // Попытка создать дубликат
+		codes.FailedPrecondition:    // Условие не выполнено (рынок закрыт)
+		return true
+	default:
+		return false
 	}
 }

@@ -2,9 +2,9 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+
 	"test-project/orderService/internal/core/domain"
 	"test-project/orderService/internal/core/ports/outbound"
 
@@ -16,15 +16,15 @@ type OrderRepository struct {
 	db *pgxpool.Pool
 }
 
-
 func NewOrderRepository(db *pgxpool.Pool) outbound.OrderRepository {
-	return &OrderRepository{
-		db: db,
-	}
+	return &OrderRepository{db: db}
 }
 
 func (o *OrderRepository) GetByID(ctx context.Context, orderID string) (*domain.Order, error) {
-	query := `SELECT order_id, user_id, market_id, order_type, price, quantity, status, created_at, updated_at 
+	//ПЛОСКИЕ КОЛОНКИ ВМЕСТО JSONB
+	query := `SELECT order_id, user_id, market_id, order_type, 
+                     price_units, price_nanos, price_currency, 
+                     quantity, status, created_at, updated_at 
               FROM orders WHERE order_id = $1`
 	
 	row := o.db.QueryRow(ctx, query, orderID)
@@ -32,20 +32,19 @@ func (o *OrderRepository) GetByID(ctx context.Context, orderID string) (*domain.
 }
 
 func (o *OrderRepository) Save(ctx context.Context, order *domain.Order) error {
-	priceJSON, err := json.Marshal(order.Price)
-	if err !=nil{
-		return fmt.Errorf("failed to marshal price to JSON: %w", err)
-	}
-	query := `INSERT INTO orders (order_id, user_id, market_id, order_type, price, quantity, status, created_at, updated_at)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	query := `INSERT INTO orders (order_id, user_id, market_id, order_type, 
+               price_units, price_nanos, price_currency, quantity, status, created_at, updated_at)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
-	_, err = o.db.Exec(ctx, query,
+	_, err := o.db.Exec(ctx, query,
 		order.OrderID,
 		order.UserID,
 		order.MarketID,
 		order.Type,
-		priceJSON,
-		order.Quantity,
+		order.Price.Units,        
+		order.Price.Nanos,       
+		order.Price.CurrencyCode, 
+		order.Quantity,           
 		order.Status,
 		order.CreatedAt,
 		order.UpdatedAt,
@@ -56,16 +55,18 @@ func (o *OrderRepository) Save(ctx context.Context, order *domain.Order) error {
 	return nil
 }
 
-func (r *OrderRepository) scanOrder(row pgx.Row) (*domain.Order, error) {
+func (o *OrderRepository) scanOrder(row pgx.Row) (*domain.Order, error) {
 	var order domain.Order
-	var priceBytes []byte
 
+	// Сканируем плоские колонки напрямую, без JSON-маршалинга
 	err := row.Scan(
 		&order.OrderID,
 		&order.UserID,
 		&order.MarketID,
 		&order.Type,
-		&priceBytes,       // Читаем JSONB как []byte
+		&order.Price.Units,        
+		&order.Price.Nanos,       
+		&order.Price.CurrencyCode,
 		&order.Quantity,
 		&order.Status,
 		&order.CreatedAt,
@@ -78,10 +79,5 @@ func (r *OrderRepository) scanOrder(row pgx.Row) (*domain.Order, error) {
 		return nil, fmt.Errorf("failed to scan order: %w", err)
 	}
 
-	if len(priceBytes) > 0 {
-		if err := json.Unmarshal(priceBytes, &order.Price); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal price JSONB: %w", err)
-		}
-	}
 	return &order, nil
 }

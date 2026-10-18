@@ -20,26 +20,21 @@ type JWTValidator interface {
 type userIDKey struct{}
 type userRoleKey struct{}  
 
-func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []string) grpc.UnaryServerInterceptor {
-	skipMap := make(map[string]struct{}, len(skipMethods))
-	for _, m := range skipMethods {
-		skipMap[m] = struct{}{}
-	}
-
+func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods map[string]struct{}) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
 		req interface{},
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
-		if _, ok := skipMap[info.FullMethod]; ok {
+		if _, ok := skipMethods[info.FullMethod]; ok {
         	return handler(ctx, req)
     	}
 
 		claims, err :=  validateTokenFromContext(ctx, validator)
 		if err != nil {
 			logFields := []zap.Field{
-				zap.String("request_id", GetRequestID(ctx)),
+				zap.String("request_id", extractOrGenerateRequestID(ctx)),
 				zap.String("method", info.FullMethod),
 				zap.Error(err),
 			}
@@ -58,14 +53,14 @@ func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []s
 			return nil, status.Error(codes.Internal, "internal authentication error")
 		}
 
-		userID, ok := claims["user_id"].(string)
-		if !ok {
-			return nil, status.Errorf(codes.Internal, "invalid user_id in token")
+		userID, err := getStringClaim(claims, "user_id")
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "invalid token: %v", err)
 		}
 
-		role, ok := claims["role"].(string)
-		if !ok {
-			return nil, status.Errorf(codes.Internal, "invalid role in token")
+		role, err := getStringClaim(claims, "role")
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "invalid token: %v", err)
 		}
 
 		ctx = context.WithValue(ctx, userIDKey{}, userID)
@@ -75,26 +70,21 @@ func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []s
 	}
 }
 
-func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods []string) grpc.StreamServerInterceptor {
-	skipMap := make(map[string]struct{}, len(skipMethods))
-	for _, m := range skipMethods {
-		skipMap[m] = struct{}{}
-	}
-
+func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods map[string]struct{}) grpc.StreamServerInterceptor {
 	return func(
 		srv interface{},
 		ss grpc.ServerStream,
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) error {
-		if _, ok := skipMap[info.FullMethod]; ok {
+		if _, ok := skipMethods[info.FullMethod]; ok {
        		return handler(srv, ss)
     	}
 
 		claims, err := validateTokenFromContext(ss.Context(), validator)
 		if err != nil {
 			logFields := []zap.Field{
-				zap.String("request_id", GetRequestID(ss.Context())),
+				zap.String("request_id", extractOrGenerateRequestID(ss.Context())),
 				zap.String("method", info.FullMethod),
 				zap.Error(err),
 			}
@@ -113,14 +103,14 @@ func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMetho
 			return status.Errorf(codes.Internal, "internal authentication error")
 		}
 
-		userID, ok := claims["user_id"].(string)
-		if !ok {
-			return status.Errorf(codes.Internal, "invalid user_id in token")
+		userID, err := getStringClaim(claims, "user_id")
+		if err != nil {
+			return status.Errorf(codes.Internal, "invalid token: %v", err)
 		}
 
-		role, ok := claims["role"].(string)
-		if !ok {
-			return status.Errorf(codes.Internal, "invalid role in token")
+		role, err := getStringClaim(claims, "role")
+		if err != nil {
+			return status.Errorf(codes.Internal, "invalid token: %v", err)
 		}
 		
 		ctx := context.WithValue(ss.Context(), userIDKey{}, userID)
@@ -163,4 +153,22 @@ func GetUserIDFromContext(ctx context.Context) (string, bool) {
 func GetUserRoleFromContext(ctx context.Context) (string, bool) {
     role, ok := ctx.Value(userRoleKey{}).(string)
     return role, ok
+}
+
+
+func getStringClaim(claims map[string]any, key string) (string, error){
+	val, exists := claims[key]
+	if !exists{
+		return "", fmt.Errorf("claim '%s' is missing", key)
+	}
+
+	strVal, ok := val.(string)
+	if !ok{
+		return "", fmt.Errorf("claim '%s' has invalid type: expected string, got %T", key, val)
+	}
+
+	if strVal == ""{
+		return "", fmt.Errorf("claim '%s' is empty", key)
+	}
+	return strVal, nil
 }

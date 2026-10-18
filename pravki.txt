@@ -980,3 +980,367 @@ jsonB явно маршалировадь структуру. (повторно 
 3 - FILLED (Тот самый статус): Сделка совершена. Деньги списаны, активы начислены. Ордер завершен.
 4 - CANCELLED: Пользователь сам отменил заявку, пока она "висела" в ожидании (PENDING).
 5 - REJECTED: Биржа отклонила заявку (например, у пользователя не хватило баланса, или рынок enabled: false).
+
+
+
+
+
+
+
+
+
+
+13.10
+double quantity = 7; //double - убираем и ставим Decimal +
+
+message CreateOrderRequest {
+  string user_id = 1[
+        (validate.rules).string = { 
+            min_len: 1,
+            max_len: 100 
+        }
+    ];
+  string market_id = 2[
+      (validate.rules).string = {
+          pattern: "^[A/Z]+-[A/Z]+$" 
+      } 
+  ];
+  OrderType order_type = 3;
+  common.v1.Money price = 4;
+  double quantity = 5; //меняем на double +
+  //timeout сетевой не избежен. добавить ключ Ключ идемпотентности +
+}
+-------------------------------------------------------------------------------
+пометки для себя:
+1. поиск ордера будет происходить через метод (ручку) GetOrderStatus, куда клиент передает order_id. 
+Это поле не должно быть частью самой сущности Order. 
+2. работа AuthInterceptor. Его задача:
+-Перехватить запрос.
+-Проверить токен из заголовка.
+-Если токен валидный, положить user_id и role в context (контекст запроса).
+-Передать управление дальше в хендлер.
+-Хендлер просто берет user_id из context. Ему не нужно, чтобы клиент присылал его в proto-сообщении. 
+Если клиент пришлет в proto user_id: "admin", а в токене у него user_id: "user123", это попытка взлома (Privilege Escalation).
+-------------------------------------------------------------------------------
+для себя: user_id - никогда не передаем в теле запроса.
+jwt реализовать(вынеси что-то общее) вспомни пример Ромы. 
+отдельный метод для валидации токена в ордер прото. ----????Не совсем поняла.????? по-моему так нельзя.  
+
+rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);  не нравится Роме. убрала +
+сам факт создания токена. удаляем ручку, валидация токена должна проверять локально(можно в интерсепторе вынести), чтобы не делать лишний сетовой запрос на проверку валидации токена +
+
+клиент для токена: срок годности для клиента. Добавить поля экспереин (ответ содержания время жизни токена). в логинРеспенс добавляем время жизни (эксперейин). +
++
+
+message LogoutResponse {
+}
+можем создавать кастомное сообщение, googleProtobufentity 
+rpc ручка возвращают googleProtobufentity +
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_CREATED = 1;
+  ORDER_STATUS_PENDING = 2;
+  ORDER_STATUS_FILLED = 3;
+  ORDER_STATUS_CANCELLED = 4;
+  ORDER_STATUS_REJECTED = 5;
+} // парционного выполнения (когда не подходит стутсу потому что выполнен частично)+
+ 
+
+ордер - минимальное количество. baseSeid, min_size, min_size, quentyty добавить, написать логику под них, реализовать. 
+++ валидация токена Отредактировать, посмотреть, сколько символов отвалдировать токены.
+
+
+shered:
+getStringAny - проверка switch case в случае, если приходит не тот тип, чтобы мы корректно обрабатывали ошибку +
+
+
+логирование : 
+if code == codes.Internal {
+				logger.Error("gRPC request failed with internal error", logFields...)
+			} else {
+				logger.Warn("gRPC request completed with client error", logFields...)
+			}
+клиентские ошибки разделить на ожидаемые и аномальные 
+id err != nil - codes.Internal/... логируем как ожидаемые 
+и тоже самое с анамальными, по дефолту варнинг.+
+
+skipMap - мапу создавать 1 раз при инициализации интерсептора. (не совсем поняла??)
+разве у нас каждый раз создается все заново? А чтобы решить, нам нужно в интерсепторе передавать skipMethods map[string]struct{}, и в маин менять:
+"skipMethodsMap := make(map[string]struct{})
+    methodsToSkip := []string{
+        "/user.v1.UserService/Register",
+        "/user.v1.UserService/Login",
+    }
+    for _, m := range methodsToSkip {
+        skipMethodsMap[m] = struct{}{}
+    }" 
+(не сделала -)
+
+x_request_id:
+в логгировании добавить например сломанные клиентские библиотеки - залогировать и не прирывать запрос, а дальше обработать и понять, нужно ли нам это (интерсептор x_request_id)
+потестить при авторизации после добавления логики валидирования, проверить, что работает. 
+x_request_id 
++
+
+пока ничего не меняю
+panic:
+					zap.String("stack", string(debug.Stack())), //главное, чтобы не вышел за рамки проекта
+					func PanicRecoveryInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor 
+	return func(
+		ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (resp interface{}, err error) 
+		requestID := GetRequestID(ctx)
+
+		defer func() 
+			if r := recover(); r != nil 
+				logger.Error("panic recovered",
+					zap.Any("panic", r),
+					zap.String("method", info.FullMethod),
+					zap.String("request_id", requestID),
+					zap.String("stack", string(debug.Stack())), //главное, чтобы не вышел за рамки проекта
+				)
+
+
+userService:
+- убрать лишние аргументы, протестить: +
+func (u *UserRepository) UpdatePassword(ctx context.Context, userID string, passwordHash string) error{
+	query := `UPDATE users 
+        SET password = $1, updated_at = NOW() 
+        WHERE user_id = $2`
+	result, err := u.db.Exec(ctx, query,passwordHash,userID) //много аргументов 
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	rows := result.RowsAffected()
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	} 
+	return nil
+}
+
+
+- в коннекшен User везде! +
+poolConfig.MaxConns = int32(cfg.MaxOpenConns)
+	poolConfig.MinConns = int32(cfg.MaxIdleConns)
+	poolConfig.MaxConnLifetime = cfg.ConnMaxLifetime
+	poolConfig.MaxConnIdleTime = time.Duration(cfg.MaxIdleConns) // подобрать нужный тип из env 
+
+реализовать или мягкое удаление
+func (u *UserRepository) Delete(ctx context.Context, id string) error {
+	query := `UPDATE users SET updated_at = NOW() WHERE user_id = $1`
+	result, err := u.db.Exec(ctx, query, id)
+	if err != nil {
+		return err
+	}
+	rows := result.RowsAffected()
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	}
+	return nil
+}
++
+
+храним рефреш токены в бд или редис. создаю рефрештокен giti, перед генерацией нового токена, вызываю прошлый или удалить, или добавить в черный список.
+
+func (m *JWTManager) RefreshToken(refreshToken string) (string, string, error) {
+    userID, role, err := m.ValidateRefreshToken(refreshToken) 
+    if err != nil {
+        return "", "", err
+    }
+    newAccessToken, err := m.GenerateAccessToken(userID, role)
+    if err != nil {
+        return "", "", fmt.Errorf("failed to generate new access token: %w", err)
+    }
+
+    newRefreshToken, err := m.GenerateRefreshToken(userID, role)
+    if err != nil {
+        return "", "", fmt.Errorf("failed to generate new refresh token: %w", err)
+    }
+    return newAccessToken, newRefreshToken, nil 
+    
+}
+
+
+var ValidUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`) //запрещает "-", выполнить метод с разрешающим тире
+вынести ошибки в отдельный файл 
+
+
+в миграции, считывать только необходимые, нам нужны только необхомые параметры для миграции , убери лишние
+
+
+func (h *UserHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+	output, err := h.service.Login(ctx, ports.LoginInput{
+		Email:    req.Email,
+		Password: req.Password,
+	})
+	if err != nil {
+		switch err {
+		case domain.ErrInvalidCredentials, domain.ErrInvalidEmail, domain.ErrInvalidPassword:
+			return nil, status.Error(codes.Unauthenticated, "invalid credentials")
+		default:
+			return nil, status.Error(codes.Internal, "internal error")
+		} // error.IS использовать 
+	}
+
+
+исправить одинаковое время жизни для токенов, исправить!
+
+func (m *JWTManager) GenerateAccessToken(userID string, role string) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id": userID,
+		"role":    role,
+		"exp":     time.Now().Add(time.Duration(m.expiresHours) * time.Hour).Unix(),
+		"iat":     time.Now().Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(m.secret))
+}
+
+func (m *JWTManager) GenerateRefreshToken(userID string, role string) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id": userID,
+		"role":    role,
+		"exp":     time.Now().Add(time.Duration(m.expiresHours) * time.Hour).Unix(),
+		"iat":     time.Now().Unix(),
+		"refresh": true,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(m.secret))
+}
+
+
+всегда использовать роль и другие параметры из бд, бд истин. источник. исправить в jwt_manager!
+
+
+в гексогональной архитектуре не определям 
+core/outbound
+type PasswordManagerInterface interface {
+	HashPassword(password string) (string, error)
+	CheckPassword(password, hash string) bool
+}
+
+
+type JWTManagerInterface interface {
+    GenerateAccessToken(userID string, role string) (string, error)          
+    GenerateRefreshToken(userID string, role string) (string, error)        
+    ValidateAccessToken(accessToken string) (map[string]any, error)          
+    ValidateRefreshToken(accessToken string) (string, string, error)         
+    RefreshToken(refreshToken string) (string, string, error)
+} 
+
+в отдельном файле должна быть реализации 
+
+в домеин в просто рассинхрон типов
+версию зависимости (интерфейс ы лежат)
+
+
+spotService:
+
+	"test-project/shared/interceptor" // слой core не должен знать о внешних деталей реализации, предавать роль пользователя через инпут (как листмаркетИнпун)
+    //
+
+
+func (s *MarketService) GetMarketByID(ctx context.Context, input portsInbound.GetMarketInput) (*portsInbound.GetMarketOutput, error) {
+	role, ok := interceptor.GetUserRoleFromContext(ctx)
+	if !ok || role == domain.RoleGuest {
+		return nil, domain.ErrPermissionDenied
+	} // не должен знать (инпут структура как в листмаркет, userRole - извлекаем из контекста и кладем, а в сервисе проверяем. )
+
+    cachedMarket, err := s.cache.Get(ctx, input.MarketID)
+    if err == nil && cachedMarket != nil {
+		return &portsInbound.GetMarketOutput{
+			Market: cachedMarket,
+		}, nil
+	}
+
+	market, err := s.repo.GetByID(ctx, input.MarketID) 
+	if err != nil {
+		return nil, err
+	}
+    _ = s.cache.Set(ctx, market, 15*time.Minute)
+
+	return &portsInbound.GetMarketOutput{
+		Market: market,
+	}, nil 
+    //не проверяет вкл ли рынок. объедени и сделай просто getMarket. 
+}
+
+
+softDelete как и в user
+
+
+func (s *MarketService) ListMarkets(ctx context.Context, input portsInbound.ListMarketsInput) (*portsInbound.ListMarketsOutput, error) {
+    pageSize := input.PageSize
+    if pageSize == 0 {
+        pageSize = defaultPageSize
+    }
+    if pageSize > maxPageSize {
+        pageSize = maxPageSize
+    }
+
+    // Извлекаем PageToken. Если он пустой — база отдаст самые первые записи
+	cursor := input.PageToken 
+
+    markets, err := s.repo.GetAllActiveWithCursor(ctx, int(pageSize), cursor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list markets: %w", err)
+	}
+
+    var nextToken string
+    if len(markets) == int(pageSize) {
+        nextToken = markets[len(markets)-1].MarketID
+    }
+
+    return &portsInbound.ListMarketsOutput{
+        Markets:       markets,
+        NextPageToken: nextToken,
+    }, nil
+} //убрать лищний метод 
+
+
+курсорная пагинация 
+ markets, err := s.repo.GetAllActiveWithCursor(ctx, int(pageSize), cursor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list markets: %w", err)
+	}
+если отсортированный порядок - это ок, если случайный uuid, то будут случайные переменные, изменять пагинацию строковый тикер, и прсматривать перечисления. Коррекно выполнить пагинацию
+
+valiUserName переименновать в другую т.к. 
+
+в JSONB  не храним. прайс медленно работает 
+прайсЮнид, прайс карент, прайс ... , ограничен
+проверить дефисы во всем проверке, и 
+getMarket проверить, что корретно работает, сразу после получения кеша, проверять флаг enaible, чтобы отдавать корректно
+
+
+методы update, delete ничего не знают про кеш, они должны проходить через сервис и явно удалить из кеша, доабвить метод к редису удаления
+
+
+getAll не использовать offset у меня курсорный метод замещает offset (сотавить курсорную паггинацию)
+
+
+инверсия зависимости, логика отчистки(enable) гетмаркет и гетмаркетID объединить, с дефисами решить, коннекшен изменить как и в юзере, мягкое удаление сделать норм, В шеред рли в инпут, проверять роль внутри шереда. бизнес логика создания через дефис(реджекст поиграться(перепроверить))
+
+
+orderService 
+AuthInterseptor отсутсвует, добавить jwt
+схемы бд, ордер не должно быть открытых имен, quetOrderID
+добавить таймаут между сервисами(чтобы при работе с другим сервисом не зависит, где-то настроить в main (должен юыть timeOut))
+
+
+ошибки в прото исправить и переделать в основных файлах 
+
+в методе save не заполняется, не найм а quet
+timeout добавить, чтобы не вис от другого сервиса 
+
+createOrder дублиррвание валидации, убрать. Убрать валидреджект - он не нужен, убрать во всех эти проверки
+
+order берем из другого места
+убираем рассинхрон в миграциях, добавить новое поля стринг для домаин, и добавить в запрос saveRepository
+регулярные выражения изменить реджекст 
+

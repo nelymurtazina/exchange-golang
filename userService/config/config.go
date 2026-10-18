@@ -13,6 +13,7 @@ import (
 
 type Config struct {
 	Database  DatabaseConfig
+	Redis     RedisConfig
 	JWT       JWTConfig
 	Password  PasswordConfig
 	Services  ServicesConfig
@@ -30,14 +31,18 @@ type DatabaseConfig struct {
 	Password        string
 	DBName          string
 	SSLMode         string
-	MaxOpenConns    int
-	MaxIdleConns    int
-	ConnMaxLifetime time.Duration
+	MaxOpenConns    int `env:"DB_MAX_OPEN_CONNS" envDefault:"25"`
+	MaxIdleConns    int `env:"DB_MAX_IDLE_CONNS" envDefault:"5"`
+	ConnMaxLifetime 	 time.Duration `env:"DB_CONN_MAX_LIFETIME" envDefault:"5"`
+	ConnMaxIdleTime      time.Duration `env:"DB_CONN_MAX_IDLE_TIME" envDefault:"15"`
 }
+
 
 type JWTConfig struct {
 	Secret       string
 	ExpiresHours int
+	AccessTTL  time.Duration 
+	RefreshTTL time.Duration
 }
 
 type ServicesConfig struct {
@@ -49,6 +54,13 @@ type ServicesConfig struct {
 type MigrationConfig struct {
 	Enabled bool
 	Path    string
+} //поменять 
+
+type RedisConfig struct {
+	Host     string
+	Port     int
+	Password string
+	DB       int
 }
 
 func LoadConfig() (Config, error) {
@@ -106,6 +118,26 @@ func LoadConfig() (Config, error) {
 	}
 	cfg.Database.ConnMaxLifetime = time.Duration(lifetime) * time.Minute
 
+	idleTime, err := getEnvAsInt("DB_CONN_MAX_IDLE_TIME")
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Database.ConnMaxIdleTime = time.Duration(idleTime) * time.Minute
+
+	cfg.Redis.Host, err = getEnv("REDIS_HOST")
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Redis.Port, err = getEnvAsInt("REDIS_PORT")
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Redis.Password = os.Getenv("REDIS_PASSWORD")
+	cfg.Redis.DB, err = getEnvAsInt("REDIS_DB")
+	if err != nil {
+		return cfg, err
+	}
+
 	// JWT
 	cfg.JWT.Secret, err = getEnv("JWT_SECRET")
 	if err != nil {
@@ -137,6 +169,23 @@ func LoadConfig() (Config, error) {
 	if err != nil {
 		return cfg, err
 	}
+	cfg.JWT.Secret = os.Getenv("JWT_SECRET")
+	if cfg.JWT.Secret == "" {
+		return cfg, err
+	}
+	accessTTLStr, err := getEnv("JWT_ACCESS_TTL")
+	if err != nil { return cfg, err }
+	cfg.JWT.AccessTTL, err = time.ParseDuration(accessTTLStr)
+	if err != nil {
+		return cfg, err
+	}
+
+	refreshTTLSt, err:= getEnv("JWT_REFRESH_TTL")
+	if err != nil { return cfg, err }
+	cfg.JWT.RefreshTTL, err = time.ParseDuration(refreshTTLSt)
+	if err != nil {
+		return cfg, err
+	}
 
 	// Migration
 	cfg.Migration.Enabled = getEnvAsBool("MIGRATION_ENABLED", true)
@@ -156,6 +205,9 @@ func getEnv(key string) (string, error) {
 	value, exists := os.LookupEnv(key)
 	if !exists || value == "" {
 		return "", fmt.Errorf("%s is required in .env", key)
+	}
+	if value := os.Getenv(key); value != "" {
+		return value, nil
 	}
 	return value, nil
 }
@@ -196,8 +248,14 @@ func (c Config) Validate() error {
 	if c.JWT.Secret == "" {
 		return errors.New("JWT_SECRET is required")
 	}
-	if c.JWT.ExpiresHours <= 0 {
-		return errors.New("JWT_EXPIRES_HOURS must be > 0")
+	if c.JWT.AccessTTL <= 0 {
+		return errors.New("JWT_ACCESS_TTL must be > 0")
+	}
+	if c.JWT.RefreshTTL <= 0 {
+		return errors.New("JWT_REFRESH_TTL must be > 0")
+	}
+	if c.JWT.RefreshTTL <= c.JWT.AccessTTL {
+		return errors.New("JWT_REFRESH_TTL must be greater than JWT_ACCESS_TTL")
 	}
 	if c.Password.BcryptCost < 10 || c.Password.BcryptCost > 14 {
 		return errors.New("BCRYPT_COST must be between 10 and 14")
@@ -220,4 +278,48 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 		return defaultValue
 	}
 	return boolValue
+}
+
+type MigrateConfig struct {
+	Database DatabaseConfig
+	Path     string
+}
+
+func LoadMigrateConfig() (MigrateConfig, error) {
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: .env file not found, using environment variables")
+	}
+
+	var cfg MigrateConfig
+	var err error
+
+	cfg.Database.Host, err = getEnv("DB_HOST")
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Database.Port, err = getEnvAsInt("DB_PORT")
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Database.User, err = getEnv("DB_USER")
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Database.Password, err = getEnv("DB_PASSWORD")
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Database.DBName, err = getEnv("DB_NAME")
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Database.SSLMode, err = getEnv("DB_SSLMODE")
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Path, err = getEnv("USER_MIGRATION_PATH")
+	if err != nil {
+		return cfg, err
+	}
+	return cfg, nil
 }

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"errors"
 	"net/mail"
 	"regexp"
 	"time"
@@ -19,21 +18,7 @@ type User struct {
 	UpdatedAt time.Time
 }
 
-var (
-    ErrUserNotFound          = errors.New("user not found")
-    ErrUserAlreadyExists     = errors.New("email already exists")
-    ErrUsernameAlreadyExists = errors.New("username already exists")
-    ErrInvalidUsername       = errors.New("invalid username")
-    ErrInvalidEmail          = errors.New("invalid email")
-    ErrInvalidPassword       = errors.New("invalid password")
-    ErrInvalidUserID         = errors.New("invalid user id")
-    ErrUserDisabled          = errors.New("user is disabled")
-    ErrInvalidCredentials    = errors.New("invalid credentials")
-    ErrInvalidToken          = errors.New("invalid token")
-    ErrInvalidRole           = errors.New("invalid role")
-)
-
-var ValidUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 const (
     RoleUser  = "user"
@@ -84,10 +69,10 @@ func ValidateUserName(name string) error{
 	if name == ""{
 		return ErrInvalidUsername
 	}
-	if len(name) < 2 || len(name) > 30{
+	if len(name) < 3 || len(name) > 50 {
 		return ErrInvalidUsername
 	}
-	if !ValidUsernameRegex.MatchString(name) {
+	if !usernameRegex.MatchString(name) {
     	return ErrInvalidUsername
 	}
 	return nil

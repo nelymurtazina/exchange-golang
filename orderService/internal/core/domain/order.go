@@ -22,6 +22,7 @@ const (
 	StatusFilled    OrderStatus = "FILLED"
 	StatusCancelled OrderStatus = "CANCELLED"
 	StatusRejected  OrderStatus = "REJECTED"
+	StatusProcessing OrderStatus = "PROCESSING"
 )
 
 var ValidUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
@@ -39,43 +40,43 @@ type Order struct {
 	MarketID  string
 	Type      OrderType
 	Price 	  Money  
-	Quantity  float64
+	Quantity  int64
 	Status    OrderStatus
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-func NewOrder(orderID, userID, marketID string, orderType OrderType, price Money, quantity float64, status OrderStatus,createdAt, updatedAt time.Time) (*Order, error){
-	if err := ValidateID(userID, ErrInvalidUserID); err != nil{
+func NewOrder(orderID, userID, marketID string, orderType OrderType, price Money, quantity int64, status OrderStatus, createdAt, updatedAt time.Time) (*Order, error) {
+	if err := ValidateID(userID, ErrInvalidUserID); err != nil {
 		return nil, err
 	}
-	if err := ValidateID(orderID, ErrInvalidOrderID); err != nil{
+	if err := ValidateID(orderID, ErrInvalidOrderID); err != nil {
 		return nil, err
 	}
-	if err := ValidateID(marketID, ErrInvalidMarketID); err != nil{
+	if err := ValidateMarketID(marketID); err != nil {
 		return nil, err
 	}
-
 	if err := ValidateType(orderType); err != nil {
 		return nil, err
 	}
-	if err := ValidateStatus(status); err != nil{
+	if err := ValidateStatus(status); err != nil {
 		return nil, err
 	}
-	if err := ValidatePrice(price); err != nil{
+	if err := ValidatePrice(price); err != nil {
 		return nil, err
 	}
 	if err := ValidateQuantity(quantity); err != nil {
 		return nil, err
 	}
+
 	return &Order{
-		OrderID: orderID,
-		UserID: userID,
-		MarketID: marketID,
-		Type: orderType,
-		Price: price,
-		Quantity: quantity,
-		Status: status,
+		OrderID:   orderID,
+		UserID:    userID,
+		MarketID:  marketID,
+		Type:      orderType,
+		Price:     price,
+		Quantity:  quantity,
+		Status:    status,
 		CreatedAt: createdAt,
 		UpdatedAt: updatedAt,
 	}, nil
@@ -105,9 +106,9 @@ func ValidateType(orderType OrderType) error{
 	}
 }
 
-func ValidateStatus(status OrderStatus) error{
+func ValidateStatus(status OrderStatus) error {
 	switch status {
-	case StatusCreated, StatusPending, StatusFilled, StatusCancelled, StatusRejected:
+	case StatusCreated, StatusPending, StatusFilled, StatusCancelled, StatusRejected, StatusProcessing: 
 		return nil
 	default:
 		return ErrInvalidOrderStatus
@@ -127,23 +128,20 @@ func ValidatePrice(price Money) error {
     return nil
 }
 
-func ValidateQuantity(quantity float64) error {
+func ValidateQuantity(quantity int64) error {
 	if quantity <= 0 {
 		return ErrInvalidQuantity
 	}
 	return nil
 }
-
 // проверяет, что market_id имеет формат "BTC-USD"
 func ValidateMarketID(marketID string) error {
 	if marketID == "" {
 		return ErrInvalidMarketID
 	}
-	
 	matched, _ := regexp.MatchString(`^[A-Z]+-[A-Z]+$`, marketID)
 	if !matched {
 		return ErrInvalidMarketID
 	}
-	
 	return nil
 }
