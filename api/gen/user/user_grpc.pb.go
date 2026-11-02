@@ -48,14 +48,14 @@ type UserServiceClient interface {
 	// Logout revokes the given refresh token. The associated access token
 	// remains valid until it naturally expires (stateless JWT limitation).
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// GetUser retrieves a user profile by user_id.
-	// Returns full profile if caller is admin, limited profile otherwise.
-	// The caller's identity is taken from the access token.
+	// GetUser returns the full user profile.
+	// Only callers with ROLE_ADMIN are allowed.
+	// Target user_id is taken from the request. Caller identity comes from JWT.
 	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
-	// GetCurrentUser retrieves the authenticated user's full profile.
-	// User information is extracted from the access token, not from the
-	// request body.
-	GetProfilePreview(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetProfilePreviewResponse, error)
+	// GetProfilePreview returns a limited public profile of any user
+	// (no email, no sensitive data). Available to any authenticated user.
+	// Target user_id is taken from the request. Caller identity comes from JWT.
+	GetProfilePreview(ctx context.Context, in *GetProfilePreviewRequest, opts ...grpc.CallOption) (*GetProfilePreviewResponse, error)
 	// RefreshToken exchanges a valid, unused refresh token token for a new
 	// access/refresh token pair. The old refresh token is invalidated
 	// immediately on success (rotation policy); it cannot be reused.
@@ -114,7 +114,7 @@ func (c *userServiceClient) GetUser(ctx context.Context, in *GetUserRequest, opt
 	return out, nil
 }
 
-func (c *userServiceClient) GetProfilePreview(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetProfilePreviewResponse, error) {
+func (c *userServiceClient) GetProfilePreview(ctx context.Context, in *GetProfilePreviewRequest, opts ...grpc.CallOption) (*GetProfilePreviewResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetProfilePreviewResponse)
 	err := c.cc.Invoke(ctx, UserService_GetProfilePreview_FullMethodName, in, out, cOpts...)
@@ -163,14 +163,14 @@ type UserServiceServer interface {
 	// Logout revokes the given refresh token. The associated access token
 	// remains valid until it naturally expires (stateless JWT limitation).
 	Logout(context.Context, *LogoutRequest) (*emptypb.Empty, error)
-	// GetUser retrieves a user profile by user_id.
-	// Returns full profile if caller is admin, limited profile otherwise.
-	// The caller's identity is taken from the access token.
+	// GetUser returns the full user profile.
+	// Only callers with ROLE_ADMIN are allowed.
+	// Target user_id is taken from the request. Caller identity comes from JWT.
 	GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error)
-	// GetCurrentUser retrieves the authenticated user's full profile.
-	// User information is extracted from the access token, not from the
-	// request body.
-	GetProfilePreview(context.Context, *GetUserRequest) (*GetProfilePreviewResponse, error)
+	// GetProfilePreview returns a limited public profile of any user
+	// (no email, no sensitive data). Available to any authenticated user.
+	// Target user_id is taken from the request. Caller identity comes from JWT.
+	GetProfilePreview(context.Context, *GetProfilePreviewRequest) (*GetProfilePreviewResponse, error)
 	// RefreshToken exchanges a valid, unused refresh token token for a new
 	// access/refresh token pair. The old refresh token is invalidated
 	// immediately on success (rotation policy); it cannot be reused.
@@ -201,7 +201,7 @@ func (UnimplementedUserServiceServer) Logout(context.Context, *LogoutRequest) (*
 func (UnimplementedUserServiceServer) GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUser not implemented")
 }
-func (UnimplementedUserServiceServer) GetProfilePreview(context.Context, *GetUserRequest) (*GetProfilePreviewResponse, error) {
+func (UnimplementedUserServiceServer) GetProfilePreview(context.Context, *GetProfilePreviewRequest) (*GetProfilePreviewResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetProfilePreview not implemented")
 }
 func (UnimplementedUserServiceServer) RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error) {
@@ -304,7 +304,7 @@ func _UserService_GetUser_Handler(srv interface{}, ctx context.Context, dec func
 }
 
 func _UserService_GetProfilePreview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetUserRequest)
+	in := new(GetProfilePreviewRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -316,7 +316,7 @@ func _UserService_GetProfilePreview_Handler(srv interface{}, ctx context.Context
 		FullMethod: UserService_GetProfilePreview_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).GetProfilePreview(ctx, req.(*GetUserRequest))
+		return srv.(UserServiceServer).GetProfilePreview(ctx, req.(*GetProfilePreviewRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

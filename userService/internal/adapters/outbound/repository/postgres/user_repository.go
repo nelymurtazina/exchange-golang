@@ -17,6 +17,10 @@ type UserRepository struct {
 	db *pgxpool.Pool
 }
 
+func (u *UserRepository) Close() any {
+	panic("unimplemented")
+}
+
 func NewUserRepository(db *pgxpool.Pool) ports.UserRepository {
 	return &UserRepository{db: db}
 }

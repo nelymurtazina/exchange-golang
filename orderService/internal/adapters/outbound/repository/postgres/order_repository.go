@@ -21,20 +21,27 @@ func NewOrderRepository(db *pgxpool.Pool) outbound.OrderRepository {
 }
 
 func (o *OrderRepository) GetByID(ctx context.Context, orderID string) (*domain.Order, error) {
-	//ПЛОСКИЕ КОЛОНКИ ВМЕСТО JSONB
-	query := `SELECT order_id, user_id, market_id, order_type, 
-                     price_units, price_nanos, price_currency, 
-                     quantity, status, created_at, updated_at 
-              FROM orders WHERE order_id = $1`
+	query := `SELECT 
+		order_id, user_id, market_id, order_type, price_units, price_nanos, price_currency, quantity, status, idempotency_key, created_at, updated_at 
+	FROM orders WHERE order_id = $1`
 	
 	row := o.db.QueryRow(ctx, query, orderID)
 	return o.scanOrder(row)
 }
 
+func (o *OrderRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.Order, error) {
+	query := `SELECT 
+		order_id, user_id, market_id, order_type, price_units, price_nanos, price_currency, quantity, status, idempotency_key, created_at, updated_at 
+	FROM orders WHERE idempotency_key = $1`
+	
+	row := o.db.QueryRow(ctx, query, key)
+	return o.scanOrder(row)
+}
+
 func (o *OrderRepository) Save(ctx context.Context, order *domain.Order) error {
-	query := `INSERT INTO orders (order_id, user_id, market_id, order_type, 
-               price_units, price_nanos, price_currency, quantity, status, created_at, updated_at)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+	query := `INSERT INTO orders (
+		order_id, user_id, market_id, order_type, price_units, price_nanos, price_currency, quantity, status, idempotency_key, created_at, updated_at
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 
 	_, err := o.db.Exec(ctx, query,
 		order.OrderID,
@@ -46,6 +53,7 @@ func (o *OrderRepository) Save(ctx context.Context, order *domain.Order) error {
 		order.Price.CurrencyCode, 
 		order.Quantity,           
 		order.Status,
+		order.IdempotencyKey,
 		order.CreatedAt,
 		order.UpdatedAt,
 	)
@@ -58,7 +66,6 @@ func (o *OrderRepository) Save(ctx context.Context, order *domain.Order) error {
 func (o *OrderRepository) scanOrder(row pgx.Row) (*domain.Order, error) {
 	var order domain.Order
 
-	// Сканируем плоские колонки напрямую, без JSON-маршалинга
 	err := row.Scan(
 		&order.OrderID,
 		&order.UserID,
@@ -69,6 +76,7 @@ func (o *OrderRepository) scanOrder(row pgx.Row) (*domain.Order, error) {
 		&order.Price.CurrencyCode,
 		&order.Quantity,
 		&order.Status,
+		&order.IdempotencyKey,
 		&order.CreatedAt,
 		&order.UpdatedAt,
 	)

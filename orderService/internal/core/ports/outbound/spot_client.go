@@ -2,7 +2,7 @@ package outbound
 
 import (
 	"context"
-	"test-project/orderService/internal/core/domain"
+	"test-project/shared/money"
 	"time"
 )
 
@@ -14,7 +14,7 @@ type MarketInfo struct {
     BaseAsset   string
     QuoteAsset  string
     Enabled     bool
-    Price       domain.Money    
+    Price       money.Money    
     MinQuantity int64  
     CreatedAt   time.Time
     UpdatedAt   time.Time

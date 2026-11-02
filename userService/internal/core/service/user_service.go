@@ -169,13 +169,13 @@ func (s *UserService) RefreshToken(ctx context.Context, input portsInbound.Refre
 		return nil, domain.ErrInvalidToken
 	}
 
-	if err := s.sessions.Delete(ctx, jti); err != nil {
-		return nil, fmt.Errorf("failed to delete old session: %w", err)
-	}
-
 	accessToken, refreshToken, err := s.issueTokens(ctx, user)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := s.sessions.Delete(ctx, jti); err != nil {
+		return nil, fmt.Errorf("failed to delete old session: %w", err)
 	}
 
 	return &portsInbound.RefreshTokenOutput{
@@ -231,8 +231,13 @@ func (s *UserService) ChangePassword(ctx context.Context, input portsInbound.Cha
 		return nil, fmt.Errorf("failed to update password: %w", err)
 	}
 
+	if err := s.sessions.DeleteAllForUser(ctx, user.UserID); err != nil {
+		return nil, fmt.Errorf("password updated, but failed to invalidate sessions: %w", err)
+	}
+
 	return &portsInbound.ChangePasswordOutput{Success: true}, nil
 }
+
 
 func (s *UserService) GetProfilePreview(ctx context.Context, input portsInbound.GetProfilePreviewInput) (*portsInbound.GetProfilePreviewOutput, error) {
 	if err := domain.ValidateID(input.UserID); err != nil {
@@ -272,3 +277,4 @@ func (s *UserService) issueTokens(ctx context.Context, user *domain.User) (acces
 
 	return accessToken, refreshToken, nil
 }
+

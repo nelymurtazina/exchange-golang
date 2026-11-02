@@ -3,6 +3,7 @@ package interceptor
 import (
 	"context"
 	"runtime/debug"
+	"test-project/shared/requestid"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -17,7 +18,7 @@ func PanicRecoveryInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (resp interface{}, err error) {
-		requestID := extractOrGenerateRequestID(ctx)
+		requestID := requestid.ExtractOrGenerate(ctx)
 
 		defer func() {
 			if r := recover(); r != nil {
@@ -44,7 +45,7 @@ func PanicRecoveryStreamInterceptor(logger *zap.Logger) grpc.StreamServerInterce
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) (err error) {
-		requestID := extractOrGenerateRequestID(ss.Context())
+		requestID := requestid.ExtractOrGenerate(ss.Context())
 
 		defer func() {
 			if r := recover(); r != nil {

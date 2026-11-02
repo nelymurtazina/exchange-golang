@@ -30,8 +30,15 @@ type GetMarketOutput struct {
     Market *domain.Market 
 }
 
+type DeleteMarketInput struct {
+	MarketID string 
+	UserRole string 
+}
+
 type MarketService interface {
 	ListMarkets(ctx context.Context, input ListMarketsInput) (*ListMarketsOutput, error)
 	GetMarket(ctx context.Context, input GetMarketInput) (*GetMarketOutput, error)
 	DisableMarket(ctx context.Context, input DisableMarketInput) (*GetMarketOutput, error)
+
+    DeleteMarket(ctx context.Context, input DeleteMarketInput) error
 }

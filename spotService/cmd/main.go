@@ -1,142 +1,25 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log"
-	"net"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
-	pb "test-project/api/gen/spot"
-	"test-project/shared/interceptor"
 	"test-project/spotService/config"
-	handler "test-project/spotService/internal/adapters/inbound/grpc"
-	"test-project/shared/authorization"
-	"test-project/spotService/internal/adapters/outbound/repository/postgres"
-	"test-project/spotService/internal/core/service"
-
-	redisAdapter "test-project/spotService/internal/adapters/outbound/redis"
-
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	"test-project/spotService/internal/app"
 )
 
 func main() {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatalf("failed to create logger: %v", err)
-	}
-	defer func() { _ = logger.Sync() }()
-
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	if err := cfg.Validate(); err != nil {
-		logger.Fatal("invalid config", zap.Error(err))
-	}
-
-	db, err := postgres.NewConnection(cfg.Database)
+	application, err := app.New(cfg)
 	if err != nil {
-		logger.Fatal("failed to connect to database", zap.Error(err))
+		log.Fatalf("failed to create application: %v", err)
 	}
-	defer db.Close() 
+	defer application.Close()
 
-	repo := postgres.NewMarketRepository(db)
-
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-	})
-
-	ctxPing, cancelPing := context.WithTimeout(context.Background(), 3*time.Second)
-	if err := rdb.Ping(ctxPing).Err(); err != nil {
-		cancelPing()
-		logger.Fatal("failed to connect to Redis", zap.Error(err))
+	if err := application.Run(); err != nil {
+		log.Fatalf("application stopped with error: %v", err)
 	}
-	cancelPing()
-	logger.Info("Redis connected successfully")
-	
-	defer func() { _ = rdb.Close() }()
-
-	marketCache := redisAdapter.NewMarketCache(rdb)
-	jwtValidator := authorization.NewTokenValidator(cfg.JWT.Secret) 
-	marketService := service.NewMarketService(repo, marketCache)  
-
-	skipMethodsMap := make(map[string]struct{})
-	methodsToSkip := []string{
-		"/spot.v1.SpotInstrumentService/ListMarkets",
-	}
-	for _, m := range methodsToSkip {
-		skipMethodsMap[m] = struct{}{}
-	}
-	grpcHandler := handler.NewMarketHandler(marketService)  
-
-	grpcServer := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			interceptor.PanicRecoveryInterceptor(logger),
-			interceptor.XRequestIDInterceptor(),
-			interceptor.LoggerInterceptor(logger),
-			interceptor.AuthInterceptor(jwtValidator, logger, skipMethodsMap), 
-		),
-		grpc.ChainStreamInterceptor(
-			interceptor.PanicRecoveryStreamInterceptor(logger),
-			interceptor.XRequestIDStreamInterceptor(),
-			interceptor.LoggerStreamInterceptor(logger),
-			interceptor.AuthStreamInterceptor(jwtValidator, logger, skipMethodsMap),
-		),
-	)
-
-	pb.RegisterSpotInstrumentServiceServer(grpcServer, grpcHandler)
-	reflection.Register(grpcServer)
-
-	lis, err := net.Listen("tcp", cfg.Services.InstrumentServicePort)
-	if err != nil {
-		logger.Fatal("failed to listen", zap.Error(err))
-	}
-
-	logger.Info("SpotService started", zap.String("address", cfg.Services.InstrumentServicePort)) 
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			logger.Error("failed to serve", zap.Error(err))
-			select {
-			case stop <- syscall.SIGTERM:
-			default:
-			}
-		}
-	}()
-
-	<-stop
-	logger.Info("Shutting down gracefully...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	shutdownDone := make(chan struct{})
-	go func() {
-		grpcServer.GracefulStop()
-		close(shutdownDone)
-	}()
-
-	select {
-	case <-shutdownDone:
-		logger.Info("Server stopped gracefully")
-	case <-ctx.Done():
-		logger.Info("Shutdown timeout, forcing stop")
-		grpcServer.Stop()
-	}
-	
 }

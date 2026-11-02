@@ -569,6 +569,130 @@ func (x *GetUserResponse) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type GetProfilePreviewRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetProfilePreviewRequest) Reset() {
+	*x = GetProfilePreviewRequest{}
+	mi := &file_user_user_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetProfilePreviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetProfilePreviewRequest) ProtoMessage() {}
+
+func (x *GetProfilePreviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_user_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetProfilePreviewRequest.ProtoReflect.Descriptor instead.
+func (*GetProfilePreviewRequest) Descriptor() ([]byte, []int) {
+	return file_user_user_proto_rawDescGZIP(), []int{8}
+}
+
+type UserProfilePreview struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserProfilePreview) Reset() {
+	*x = UserProfilePreview{}
+	mi := &file_user_user_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserProfilePreview) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserProfilePreview) ProtoMessage() {}
+
+func (x *UserProfilePreview) ProtoReflect() protoreflect.Message {
+	mi := &file_user_user_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserProfilePreview.ProtoReflect.Descriptor instead.
+func (*UserProfilePreview) Descriptor() ([]byte, []int) {
+	return file_user_user_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *UserProfilePreview) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+type GetProfilePreviewResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Profile       *UserProfilePreview    `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetProfilePreviewResponse) Reset() {
+	*x = GetProfilePreviewResponse{}
+	mi := &file_user_user_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetProfilePreviewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetProfilePreviewResponse) ProtoMessage() {}
+
+func (x *GetProfilePreviewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_user_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetProfilePreviewResponse.ProtoReflect.Descriptor instead.
+func (*GetProfilePreviewResponse) Descriptor() ([]byte, []int) {
+	return file_user_user_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetProfilePreviewResponse) GetProfile() *UserProfilePreview {
+	if x != nil {
+		return x.Profile
+	}
+	return nil
+}
+
 // RefreshTokenRequest contains a refresh token to exchange for new tokens.
 type RefreshTokenRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -579,7 +703,7 @@ type RefreshTokenRequest struct {
 
 func (x *RefreshTokenRequest) Reset() {
 	*x = RefreshTokenRequest{}
-	mi := &file_user_user_proto_msgTypes[8]
+	mi := &file_user_user_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -591,7 +715,7 @@ func (x *RefreshTokenRequest) String() string {
 func (*RefreshTokenRequest) ProtoMessage() {}
 
 func (x *RefreshTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_user_proto_msgTypes[8]
+	mi := &file_user_user_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -604,7 +728,7 @@ func (x *RefreshTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshTokenRequest.ProtoReflect.Descriptor instead.
 func (*RefreshTokenRequest) Descriptor() ([]byte, []int) {
-	return file_user_user_proto_rawDescGZIP(), []int{8}
+	return file_user_user_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *RefreshTokenRequest) GetRefreshToken() string {
@@ -626,7 +750,7 @@ type RefreshTokenResponse struct {
 
 func (x *RefreshTokenResponse) Reset() {
 	*x = RefreshTokenResponse{}
-	mi := &file_user_user_proto_msgTypes[9]
+	mi := &file_user_user_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -638,7 +762,7 @@ func (x *RefreshTokenResponse) String() string {
 func (*RefreshTokenResponse) ProtoMessage() {}
 
 func (x *RefreshTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_user_proto_msgTypes[9]
+	mi := &file_user_user_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -651,7 +775,7 @@ func (x *RefreshTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshTokenResponse.ProtoReflect.Descriptor instead.
 func (*RefreshTokenResponse) Descriptor() ([]byte, []int) {
-	return file_user_user_proto_rawDescGZIP(), []int{9}
+	return file_user_user_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RefreshTokenResponse) GetAccessToken() string {
@@ -686,7 +810,7 @@ type ChangePasswordRequest struct {
 
 func (x *ChangePasswordRequest) Reset() {
 	*x = ChangePasswordRequest{}
-	mi := &file_user_user_proto_msgTypes[10]
+	mi := &file_user_user_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -698,7 +822,7 @@ func (x *ChangePasswordRequest) String() string {
 func (*ChangePasswordRequest) ProtoMessage() {}
 
 func (x *ChangePasswordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_user_proto_msgTypes[10]
+	mi := &file_user_user_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -711,7 +835,7 @@ func (x *ChangePasswordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangePasswordRequest.ProtoReflect.Descriptor instead.
 func (*ChangePasswordRequest) Descriptor() ([]byte, []int) {
-	return file_user_user_proto_rawDescGZIP(), []int{10}
+	return file_user_user_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ChangePasswordRequest) GetCurrentPassword() string {
@@ -738,7 +862,7 @@ type ChangePasswordResponse struct {
 
 func (x *ChangePasswordResponse) Reset() {
 	*x = ChangePasswordResponse{}
-	mi := &file_user_user_proto_msgTypes[11]
+	mi := &file_user_user_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -750,7 +874,7 @@ func (x *ChangePasswordResponse) String() string {
 func (*ChangePasswordResponse) ProtoMessage() {}
 
 func (x *ChangePasswordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_user_proto_msgTypes[11]
+	mi := &file_user_user_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -763,7 +887,7 @@ func (x *ChangePasswordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangePasswordResponse.ProtoReflect.Descriptor instead.
 func (*ChangePasswordResponse) Descriptor() ([]byte, []int) {
-	return file_user_user_proto_rawDescGZIP(), []int{11}
+	return file_user_user_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ChangePasswordResponse) GetMessage() string {
@@ -771,102 +895,6 @@ func (x *ChangePasswordResponse) GetMessage() string {
 		return x.Message
 	}
 	return ""
-}
-
-type UserProfilePreview struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UserProfilePreview) Reset() {
-	*x = UserProfilePreview{}
-	mi := &file_user_user_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UserProfilePreview) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UserProfilePreview) ProtoMessage() {}
-
-func (x *UserProfilePreview) ProtoReflect() protoreflect.Message {
-	mi := &file_user_user_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UserProfilePreview.ProtoReflect.Descriptor instead.
-func (*UserProfilePreview) Descriptor() ([]byte, []int) {
-	return file_user_user_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *UserProfilePreview) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *UserProfilePreview) GetUsername() string {
-	if x != nil {
-		return x.Username
-	}
-	return ""
-}
-
-type GetProfilePreviewResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Profile       *UserProfilePreview    `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetProfilePreviewResponse) Reset() {
-	*x = GetProfilePreviewResponse{}
-	mi := &file_user_user_proto_msgTypes[13]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetProfilePreviewResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetProfilePreviewResponse) ProtoMessage() {}
-
-func (x *GetProfilePreviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_user_proto_msgTypes[13]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetProfilePreviewResponse.ProtoReflect.Descriptor instead.
-func (*GetProfilePreviewResponse) Descriptor() ([]byte, []int) {
-	return file_user_user_proto_rawDescGZIP(), []int{13}
-}
-
-func (x *GetProfilePreviewResponse) GetProfile() *UserProfilePreview {
-	if x != nil {
-		return x.Profile
-	}
-	return nil
 }
 
 var File_user_user_proto protoreflect.FileDescriptor
@@ -911,7 +939,12 @@ const file_user_user_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"F\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x1a\n" +
+	"\x18GetProfilePreviewRequest\"0\n" +
+	"\x12UserProfilePreview\x12\x1a\n" +
+	"\busername\x18\x01 \x01(\tR\busername\"R\n" +
+	"\x19GetProfilePreviewResponse\x125\n" +
+	"\aprofile\x18\x01 \x01(\v2\x1b.user.v1.UserProfilePreviewR\aprofile\"F\n" +
 	"\x13RefreshTokenRequest\x12/\n" +
 	"\rrefresh_token\x18\x01 \x01(\tB\n" +
 	"\xfaB\ar\x05\x102\x18\xf4\x03R\frefreshToken\"}\n" +
@@ -924,25 +957,20 @@ const file_user_user_proto_rawDesc = "" +
 	"\x10current_password\x18\x01 \x01(\tB\t\xfaB\x06r\x04\x10\b\x18HR\x0fcurrentPassword\x12,\n" +
 	"\fnew_password\x18\x02 \x01(\tB\t\xfaB\x06r\x04\x10\b\x18HR\vnewPassword\"2\n" +
 	"\x16ChangePasswordResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"@\n" +
-	"\x12UserProfilePreview\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\"R\n" +
-	"\x19GetProfilePreviewResponse\x125\n" +
-	"\aprofile\x18\x01 \x01(\v2\x1b.user.v1.UserProfilePreviewR\aprofile*K\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage*K\n" +
 	"\x04Role\x12\x14\n" +
 	"\x10ROLE_UNSPECIFIED\x10\x00\x12\r\n" +
 	"\tROLE_USER\x10\x01\x12\x0e\n" +
 	"\n" +
 	"ROLE_ADMIN\x10\x02\x12\x0e\n" +
 	"\n" +
-	"ROLE_GUEST\x10\x032\xf0\x03\n" +
+	"ROLE_GUEST\x10\x032\xfa\x03\n" +
 	"\vUserService\x12?\n" +
 	"\bRegister\x12\x18.user.v1.RegisterRequest\x1a\x19.user.v1.RegisterResponse\x126\n" +
 	"\x05Login\x12\x15.user.v1.LoginRequest\x1a\x16.user.v1.LoginResponse\x128\n" +
 	"\x06Logout\x12\x16.user.v1.LogoutRequest\x1a\x16.google.protobuf.Empty\x12<\n" +
-	"\aGetUser\x12\x17.user.v1.GetUserRequest\x1a\x18.user.v1.GetUserResponse\x12P\n" +
-	"\x11GetProfilePreview\x12\x17.user.v1.GetUserRequest\x1a\".user.v1.GetProfilePreviewResponse\x12K\n" +
+	"\aGetUser\x12\x17.user.v1.GetUserRequest\x1a\x18.user.v1.GetUserResponse\x12Z\n" +
+	"\x11GetProfilePreview\x12!.user.v1.GetProfilePreviewRequest\x1a\".user.v1.GetProfilePreviewResponse\x12K\n" +
 	"\fRefreshToken\x12\x1c.user.v1.RefreshTokenRequest\x1a\x1d.user.v1.RefreshTokenResponse\x12Q\n" +
 	"\x0eChangePassword\x12\x1e.user.v1.ChangePasswordRequest\x1a\x1f.user.v1.ChangePasswordResponseB\"Z test-project/api/gen/user;userv1b\x06proto3"
 
@@ -959,7 +987,7 @@ func file_user_user_proto_rawDescGZIP() []byte {
 }
 
 var file_user_user_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_user_user_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_user_user_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_user_user_proto_goTypes = []any{
 	(Role)(0),                         // 0: user.v1.Role
 	(*User)(nil),                      // 1: user.v1.User
@@ -970,37 +998,38 @@ var file_user_user_proto_goTypes = []any{
 	(*LogoutRequest)(nil),             // 6: user.v1.LogoutRequest
 	(*GetUserRequest)(nil),            // 7: user.v1.GetUserRequest
 	(*GetUserResponse)(nil),           // 8: user.v1.GetUserResponse
-	(*RefreshTokenRequest)(nil),       // 9: user.v1.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),      // 10: user.v1.RefreshTokenResponse
-	(*ChangePasswordRequest)(nil),     // 11: user.v1.ChangePasswordRequest
-	(*ChangePasswordResponse)(nil),    // 12: user.v1.ChangePasswordResponse
-	(*UserProfilePreview)(nil),        // 13: user.v1.UserProfilePreview
-	(*GetProfilePreviewResponse)(nil), // 14: user.v1.GetProfilePreviewResponse
-	(*timestamppb.Timestamp)(nil),     // 15: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),             // 16: google.protobuf.Empty
+	(*GetProfilePreviewRequest)(nil),  // 9: user.v1.GetProfilePreviewRequest
+	(*UserProfilePreview)(nil),        // 10: user.v1.UserProfilePreview
+	(*GetProfilePreviewResponse)(nil), // 11: user.v1.GetProfilePreviewResponse
+	(*RefreshTokenRequest)(nil),       // 12: user.v1.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),      // 13: user.v1.RefreshTokenResponse
+	(*ChangePasswordRequest)(nil),     // 14: user.v1.ChangePasswordRequest
+	(*ChangePasswordResponse)(nil),    // 15: user.v1.ChangePasswordResponse
+	(*timestamppb.Timestamp)(nil),     // 16: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),             // 17: google.protobuf.Empty
 }
 var file_user_user_proto_depIdxs = []int32{
 	0,  // 0: user.v1.User.role:type_name -> user.v1.Role
-	15, // 1: user.v1.User.created_at:type_name -> google.protobuf.Timestamp
-	15, // 2: user.v1.User.updated_at:type_name -> google.protobuf.Timestamp
+	16, // 1: user.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	16, // 2: user.v1.User.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 3: user.v1.GetUserResponse.role:type_name -> user.v1.Role
-	15, // 4: user.v1.GetUserResponse.created_at:type_name -> google.protobuf.Timestamp
-	15, // 5: user.v1.GetUserResponse.updated_at:type_name -> google.protobuf.Timestamp
-	13, // 6: user.v1.GetProfilePreviewResponse.profile:type_name -> user.v1.UserProfilePreview
+	16, // 4: user.v1.GetUserResponse.created_at:type_name -> google.protobuf.Timestamp
+	16, // 5: user.v1.GetUserResponse.updated_at:type_name -> google.protobuf.Timestamp
+	10, // 6: user.v1.GetProfilePreviewResponse.profile:type_name -> user.v1.UserProfilePreview
 	2,  // 7: user.v1.UserService.Register:input_type -> user.v1.RegisterRequest
 	4,  // 8: user.v1.UserService.Login:input_type -> user.v1.LoginRequest
 	6,  // 9: user.v1.UserService.Logout:input_type -> user.v1.LogoutRequest
 	7,  // 10: user.v1.UserService.GetUser:input_type -> user.v1.GetUserRequest
-	7,  // 11: user.v1.UserService.GetProfilePreview:input_type -> user.v1.GetUserRequest
-	9,  // 12: user.v1.UserService.RefreshToken:input_type -> user.v1.RefreshTokenRequest
-	11, // 13: user.v1.UserService.ChangePassword:input_type -> user.v1.ChangePasswordRequest
+	9,  // 11: user.v1.UserService.GetProfilePreview:input_type -> user.v1.GetProfilePreviewRequest
+	12, // 12: user.v1.UserService.RefreshToken:input_type -> user.v1.RefreshTokenRequest
+	14, // 13: user.v1.UserService.ChangePassword:input_type -> user.v1.ChangePasswordRequest
 	3,  // 14: user.v1.UserService.Register:output_type -> user.v1.RegisterResponse
 	5,  // 15: user.v1.UserService.Login:output_type -> user.v1.LoginResponse
-	16, // 16: user.v1.UserService.Logout:output_type -> google.protobuf.Empty
+	17, // 16: user.v1.UserService.Logout:output_type -> google.protobuf.Empty
 	8,  // 17: user.v1.UserService.GetUser:output_type -> user.v1.GetUserResponse
-	14, // 18: user.v1.UserService.GetProfilePreview:output_type -> user.v1.GetProfilePreviewResponse
-	10, // 19: user.v1.UserService.RefreshToken:output_type -> user.v1.RefreshTokenResponse
-	12, // 20: user.v1.UserService.ChangePassword:output_type -> user.v1.ChangePasswordResponse
+	11, // 18: user.v1.UserService.GetProfilePreview:output_type -> user.v1.GetProfilePreviewResponse
+	13, // 19: user.v1.UserService.RefreshToken:output_type -> user.v1.RefreshTokenResponse
+	15, // 20: user.v1.UserService.ChangePassword:output_type -> user.v1.ChangePasswordResponse
 	14, // [14:21] is the sub-list for method output_type
 	7,  // [7:14] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
@@ -1019,7 +1048,7 @@ func file_user_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_user_proto_rawDesc), len(file_user_user_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

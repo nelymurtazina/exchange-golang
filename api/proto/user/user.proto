@@ -24,15 +24,15 @@ service UserService {
     // remains valid until it naturally expires (stateless JWT limitation).
     rpc Logout(LogoutRequest) returns (google.protobuf.Empty);
     
-    // GetUser retrieves a user profile by user_id.
-    // Returns full profile if caller is admin, limited profile otherwise.
-    // The caller's identity is taken from the access token.
+    // GetUser returns the full user profile.
+    // Only callers with ROLE_ADMIN are allowed.
+    // Target user_id is taken from the request. Caller identity comes from JWT.
     rpc GetUser(GetUserRequest) returns (GetUserResponse);
     
-    // GetCurrentUser retrieves the authenticated user's full profile.
-    // User information is extracted from the access token, not from the
-    // request body.
-    rpc GetProfilePreview(GetUserRequest) returns (GetProfilePreviewResponse);
+    // GetProfilePreview returns a limited public profile of any user
+    // (no email, no sensitive data). Available to any authenticated user.
+    // Target user_id is taken from the request. Caller identity comes from JWT.
+    rpc GetProfilePreview(GetProfilePreviewRequest) returns (GetProfilePreviewResponse);
 
     // RefreshToken exchanges a valid, unused refresh token token for a new
     // access/refresh token pair. The old refresh token is invalidated
@@ -150,6 +150,18 @@ message GetUserResponse{
   google.protobuf.Timestamp updated_at = 6;
 }
 
+message GetProfilePreviewRequest {
+    // user_id беру из токена 
+}
+
+message UserProfilePreview {
+    string username = 1;
+}
+message GetProfilePreviewResponse {
+    UserProfilePreview profile = 1;
+}
+
+
 // RefreshTokenRequest contains a refresh token to exchange for new tokens.
 message RefreshTokenRequest{
     string refresh_token = 1 [
@@ -186,13 +198,4 @@ message ChangePasswordRequest {
 // ChangePasswordResponse confirms successful password change.
 message ChangePasswordResponse {
     string message = 1;
-}
-
-message UserProfilePreview {
-  string id = 1;
-  string username = 2; 
-}
-
-message GetProfilePreviewResponse {
-  UserProfilePreview profile = 1;
 }

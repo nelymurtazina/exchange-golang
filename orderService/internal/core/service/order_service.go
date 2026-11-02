@@ -24,6 +24,15 @@ func NewOrderService(repo outbound.OrderRepository, spotClient outbound.SpotInst
 }
 
 func (o *OrderService) CreateOrder(ctx context.Context, input inbound.CreateOrderInput)(*inbound.CreateOrderOutput, error){
+	if input.IdempotencyKey != "" {
+		existingOrder, err := o.repo.GetByIdempotencyKey(ctx, input.IdempotencyKey)
+		if err == nil && existingOrder != nil {
+			return &inbound.CreateOrderOutput{
+				OrderID: existingOrder.OrderID,
+				Status:  existingOrder.Status,
+			}, nil
+		}
+	}
 	if err := domain.ValidateID(input.UserID, domain.ErrInvalidUserID); err != nil {
 		return nil, err
 	}
@@ -61,6 +70,7 @@ func (o *OrderService) CreateOrder(ctx context.Context, input inbound.CreateOrde
 		input.Price,
 		input.Quantity,
 		domain.StatusCreated,
+		input.IdempotencyKey,
 		now,
 		now,
 	)

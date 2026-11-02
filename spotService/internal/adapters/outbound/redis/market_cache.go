@@ -12,6 +12,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const marketsListKey = "markets:list"
+
 type MarketCacheImpl struct {
 	client *redis.Client
 }
@@ -66,4 +68,44 @@ func (c *MarketCacheImpl) Delete(ctx context.Context, marketID string) error {
 		return fmt.Errorf("failed to delete market from cache: %w", err)
 	}
 	return nil
+}
+
+func(c *MarketCacheImpl) GetMarketsList(ctx context.Context) ([]*domain.Market, error){
+	jsonData, err := c.client.Get(ctx, marketsListKey).Result()
+	if err != nil{
+		if errors.Is(err, redis.Nil){
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get markets list from redis: %w", err)
+	}
+
+	var markets []*domain.Market
+    err = json.Unmarshal([]byte(jsonData), &markets)
+    if err != nil {
+        return nil, fmt.Errorf("failed to unmarshal markets list: %w", err)
+    }
+
+    return markets, nil
+}
+
+func (c *MarketCacheImpl) SetMarketsList(ctx context.Context, markets []*domain.Market, expiration time.Duration) error {
+    jsonData, err := json.Marshal(markets)
+    if err != nil {
+        return fmt.Errorf("failed to marshal markets list: %w", err)
+    }
+
+    err = c.client.Set(ctx, marketsListKey, jsonData, expiration).Err()
+    if err != nil {
+        return fmt.Errorf("failed to save markets list to redis: %w", err)
+    }
+
+    return nil
+}
+
+func (c *MarketCacheImpl) DeleteMarketsList(ctx context.Context) error {
+    err := c.client.Del(ctx, marketsListKey).Err()
+    if err != nil {
+        return fmt.Errorf("failed to delete markets list cache: %w", err)
+    }
+    return nil
 }

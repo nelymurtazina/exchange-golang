@@ -59,7 +59,11 @@ message ListMarketsRequest {
             lte: 100  
         }
     ];
-    string page_token = 2; 
+    string page_token = 2[
+        (validate.rules).string = {
+            max_len: 256 
+        }
+    ]; 
 }
 
 // ListMarketsResponse contains the list of markets and pagination data.

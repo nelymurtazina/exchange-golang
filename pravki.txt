@@ -1344,3 +1344,328 @@ order берем из другого места
 убираем рассинхрон в миграциях, добавить новое поля стринг для домаин, и добавить в запрос saveRepository
 регулярные выражения изменить реджекст 
 
+
+
+
+
+
+
+
+
+
+
+прравки 30.10
+прото изер
+message GetUserRequest  {
+    // user_id беру из токена 
+}+
+
+// GetUserResponse contains the user's profile information.
+message GetUserResponse{
+  string user_id = 1;
+  string username = 2;
+  string email = 3; 
+  Role role = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+} 
+либо разделить метод либо убрать  string email = 3;  +
+Раздели получение пользователя. email, для админа и другие кейсы, но не для всех +
+ rpc GetUser(GetUserRequest) returns (GetUserResponse);
+ //это гетмайюзерпрофайл 
+    rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    измени логику! 
+    rpc GetProfilePreview(GetUserRequest) returns (GetProfilePreviewResponse);
+
+!!!!!!!!!!!!!!!!!!-------???---??-
+RefreshTokenRequest - проверка user_id. ему же удобно для проверки (проверь, что пробрасываем только в нужных штуках)
+!!!!!!!!!!!!!!!!!!!------
+
+ спот сервиса 
+ валидация string page_token
+ message ListMarketsRequest {
+    int32 page_size = 1 [
+        (validate.rules).int32 = {
+            gte: 1,    
+            lte: 100  
+        }
+    ];
+    string page_token = 2; 
+}+
+
+
+шеред request_id
+сделать единую функцию для контекста: которая будет проверять контекс(делаем ключ экспортированеммы), извлекаем ключ, метадата или гененрируем новый. и используем в x_request_idInterseptore и вызываем в других местах(логгер и тд)
++
+TokenValidator
+
+в AUTH (валидатор. валидатор акссес токен) возврашщаеть указатель 
+функция getStringClaim не нужна из-за валидатора+
+
+проверка заголовка. парс, сплит, убираю лишнюю проверку регистру(валидатор), убрать валидатор, +
+(поискать разраба про библиотеку)+
+
+переписать ошибку в auth
+logger.Error("auth failed: internal system error", logFields...)
+			return nil, status.Error(codes.Internal, "internal authentication error") //ошибка клиента, перебрасывать другую ошибку
++
+map.string.stract - копировать в конструкторе(по ссылке не передавать.)
++
+
+userService session_store +
+переписать market +
+
+Сделай папку app для main для инициализации и тд для юзера сделала
+для спот  -
+для ордер -
+
+redisClient := redisLib.NewClient(&redisLib.Options{
+		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+		//доп настройка для максимального кол-ва подключение и тд. Добавить 
+}) +
+
+линтер ругается в юзер defer redisClient.Close() +
+
+упростить функцию в конфигах убрать ВЕЗДЕ +
+func getEnv(key string) (string, error) {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return "", fmt.Errorf("%s is required in .env", key)
+	}
+	if value := os.Getenv(key); value != "" {
+		return value, nil
+	} //избыточно, убрать. 
+	return value, nil
+}+
+
+
+
+
+СНАЧАЛА ГЕНЕНРИРУЕМ, ПОТОМ УДАЛЯЕМ. Изменить, порядок. +
+func (s *UserService) RefreshToken(ctx context.Context, input portsInbound.RefreshTokenInput) (*portsInbound.RefreshTokenOutput, error) {
+	if input.RefreshToken == "" {
+		return nil, domain.ErrInvalidToken
+	}
+
+	userID, jti, err := s.jwt.ValidateRefreshToken(input.RefreshToken)
+	if err != nil {
+		return nil, domain.ErrInvalidToken
+	}
+
+	if err := domain.ValidateID(userID); err != nil {
+		return nil, domain.ErrInvalidUserID
+	}
+
+	sessionUserID, err := s.sessions.GetUserID(ctx, jti)
+	if err != nil {
+		return nil, domain.ErrInvalidToken
+	}
+
+	if sessionUserID != userID {
+		return nil, domain.ErrInvalidToken
+	}
+
+	user, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return nil, domain.ErrInvalidToken
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return nil, domain.ErrInvalidToken
+	}
+
+	// 1. Сначала генерируем новые токены
+	accessToken, refreshToken, err := s.issueTokens(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Только после успешной генерации удаляем старую сессию
+	if err := s.sessions.Delete(ctx, jti); err != nil {
+		// Здесь уже сложнее: новые токены выданы, а старую сессию удалить не удалось.
+		// Можно залогировать и всё равно вернуть новые токены,
+		// либо вернуть ошибку (зависит от политики).
+		return nil, fmt.Errorf("failed to delete old session: %w", err)
+	}
+
+	return &portsInbound.RefreshTokenOutput{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    int64(s.jwt.GetAccessTTL().Seconds()),
+	}, nil
+}
+
+
+
+
+в ChangePassword добавит:
+удаления ключей из списка(для предотвращения кражи сессии)  Добавить удаление(черный список ) +
+func (s *UserService) ChangePassword(ctx context.Context, input portsInbound.ChangePasswordInput) (*portsInbound.ChangePasswordOutput, error) {
+	if err := domain.ValidatePassword(input.NewPassword); err != nil {
+		return nil, err
+	}
+
+	user, err := s.repo.GetByID(ctx, input.UserID)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return nil, domain.ErrInvalidCredentials
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if !s.passwd.CheckPassword(input.CurrentPassword, user.PasswordHash) {
+		return nil, domain.ErrInvalidCredentials
+	}
+
+	hashedPassword, err := s.passwd.HashPassword(input.NewPassword)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	if err := s.repo.UpdatePassword(ctx, user.UserID, hashedPassword); err != nil {
+		return nil, fmt.Errorf("failed to update password: %w", err)
+	}
+
+	//удаления ключей из списка(для предотвращения кражи сессии)  Добавить удаление(черный список )
++
+	return &portsInbound.ChangePasswordOutput{Success: true}, nil
+}
+
+
+
+
+КОПИПАСТ ПРОВЕРИТЬ У СЕРВИСОВ, ЧТО ЕСЛИ КОПИ, ТО ЗАМЕНЕНЫ КОПИ.
+
+В auth/
+package auth+
+
+import (
+	"errors"
+	"fmt"
+
+	"test-project/shared/interceptor" 
+	"github.com/golang-jwt/jwt/v5"
+)
+
+type JWTClaims struct {
+	UserID string `json:"user_id"`
+	Role   string `json:"role"`
+	jwt.RegisteredClaims
+}
+
+type TokenValidator struct {
+	secretKey string
+}
+
+func NewTokenValidator(secretKey string) interceptor.JWTValidator {
+	return &TokenValidator{secretKey: secretKey}
+}
+
+func (v *TokenValidator) ValidateAccessToken(tokenStr string) (map[string]any, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(v.secretKey), nil
+	})
+
+	if err != nil {
+		return nil, err 
+	}
+
+	claims, ok := token.Claims.(*JWTClaims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token claims")
+	}
+
+	return map[string]any{
+		"user_id": claims.UserID,
+		"role":    claims.Role,
+	}, nil
+} УДАЛИТЬ+
+
+
+в спотСервисе в маин использовать zap убрать другое +
+копипаст сервиса. +
+упросить функцию main сделать меньше добавить папку up +
+
+endPointListMarket добавить Redis  в спортСервисе  +
+Если делаю проверку, проверять маркет на удаление, а потом производить другие проверки (чтобы не проверять удаленный маркет) - 
++
+
+в инбаунт лист маркет есть невозможные ошибки +
+метод ListMarket не создает записи +
+
+маппинг ошибок в методе create.ю сырые ошибки не нужны, grpc маппим ошибки для 
+func (r *MarketRepository) Create(ctx context.Context, market *domain.Market) error {
+	query := `INSERT INTO markets (market_id, name, base_asset, quote_asset, enabled, price_units, price_nanos, price_currency, min_quantity, created_at, updated_at, deleted_at)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+
+	_, err := r.db.Exec(ctx, query,
+		market.MarketID,
+		market.Name,
+		market.BaseAsset,
+		market.QuoteAsset,
+		market.Enabled,
+		market.Price.Units,
+		market.Price.Nanos,
+		market.Price.CurrencyCode,
+		market.MinQuantity,
+		market.CreatedAt,
+		market.UpdatedAt,
+		market.DeletedAt,
+	)
+	return err
+}+
+
+
+использовать в domain Money 
+либо сделать общий тип из шереда,
+type Money struct {
+    Units        int64
+    Nanos        int32
+    CurrencyCode string
+} + (вынесла в шеред)
+
+
+
+в order:
+изменить миграцию и привести sql сервис под колонки из запроса 
+ ---использовать bigInt
+
+
+type CreateOrderInput struct {
+	UserID         string 
+	MarketID       string
+	Type           domain.OrderType
+	Price          domain.Money
+	Quantity       int64 
+	IdempotencyKey string //оно не проверяется в сервисе и не сохраняется в бд(не используется
+	//)в методе Save выполнить реализацию IdempotencyKey
+}
+func (o *OrderService) CreateOrder(ctx context.Context, input inbound.CreateOrderInput)(*inbound.CreateOrderOutput, error)
+	//проверка IdempotencyKey, если есть - вернуть статус 
+
+matched, _ := regexp.MatchString(`^[A-Z]+-[A-Z]+$`, marketID) - выполняется каждый раз при вызове. Вынести на уровень пакета, чтобы каждый раз не выполнять повторно проверку.
+// проверяет, что market_id имеет формат "BTC-USD"
+func ValidateMarketID(marketID string) error {
+	if marketID == "" {
+		return ErrInvalidMarketID
+	}
+	matched, _ := regexp.MatchString(`^[A-Z]+-[A-Z]+$`, marketID)
+	if !matched {
+		return ErrInvalidMarketID
+	}
+	return nil
+}
+
+zap лог проверить и использовать везде в маин 
+
+
+
+ДОБАВИТЬ REDIS В SpotInstrumentClient +
+ПРОТЕСТИРОВАТЬ,ПРОВЕРИТЬ РАБОТОСПОСОБНОСТЬ

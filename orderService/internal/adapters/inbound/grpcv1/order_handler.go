@@ -8,7 +8,8 @@ import (
 	pb "test-project/api/gen/order"
 	"test-project/orderService/internal/core/domain"
 	"test-project/orderService/internal/core/ports/inbound"
-	"test-project/shared/interceptor" 
+	"test-project/shared/interceptor"
+	"test-project/shared/money"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -107,14 +108,14 @@ func mapStatus(status domain.OrderStatus) pb.OrderStatus {
 	}
 }
 
-func mapProtoMoneyToDomain(money *commonv1.Money) domain.Money {
-	if money == nil || money.Amount == nil {
-		return domain.Money{}
+func mapProtoMoneyToDomain(m *commonv1.Money) money.Money {
+	if m == nil || m.Amount == nil {
+		return money.Money{}
 	}
-	return domain.Money{
-		Units:        money.Amount.Units,
-		Nanos:        money.Amount.Nanos,
-		CurrencyCode: money.CurrencyCode,
+	return money.Money{
+		Units:        m.Amount.Units,
+		Nanos:        m.Amount.Nanos,
+		CurrencyCode: m.CurrencyCode,
 	}
 }
 
@@ -145,7 +146,7 @@ func mapOrderTypeToProto(orderType domain.OrderType) pb.OrderType {
 	}
 }
 
-func mapDomainMoneyToProto(money domain.Money) *commonv1.Money {
+func mapDomainMoneyToProto(money money.Money) *commonv1.Money {
 	return &commonv1.Money{
 		Amount: &commonv1.Decimal{
 			Units: money.Units,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"test-project/shared/interceptor"
+	"test-project/shared/money"
 	"test-project/spotService/internal/core/domain"
 	"test-project/spotService/internal/core/ports/inbound"
 
@@ -120,6 +121,8 @@ func (h *MarketHandler) DisableMarket(ctx context.Context, req *pb.DisableMarket
 }
 
 
+
+
 func toProtoMarket(m *domain.Market) *pb.Market {
     if m == nil {
         return nil
@@ -138,7 +141,7 @@ func toProtoMarket(m *domain.Market) *pb.Market {
     }
 }
 
-func toProtoMoney(m domain.Money) *commonv1.Money {
+func toProtoMoney(m money.Money) *commonv1.Money {
     return &commonv1.Money{
         Amount: &commonv1.Decimal{
             Units: m.Units,
@@ -147,3 +150,4 @@ func toProtoMoney(m domain.Money) *commonv1.Money {
         CurrencyCode: m.CurrencyCode,
     }
 }
+

@@ -12,4 +12,5 @@ type MarketRepository interface {
 	Update(ctx context.Context, market *domain.Market) error
 	SoftDelete(ctx context.Context, id string) error 
 	GetAllActiveWithCursor(ctx context.Context, limit int, cursor string) ([]*domain.Market, error)
+	IsDeleted(ctx context.Context, id string) (bool, error)
 }

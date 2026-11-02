@@ -176,7 +176,7 @@ func (h *UserHandler) ChangePassword(ctx context.Context, req *pb.ChangePassword
     }, nil
 }
 
-func (h *UserHandler) GetProfilePreview(ctx context.Context, req *pb.GetUserRequest) (*pb.GetProfilePreviewResponse, error) {
+func (h *UserHandler) GetProfilePreview(ctx context.Context, req *pb.GetProfilePreviewRequest) (*pb.GetProfilePreviewResponse, error) {
     targetUserID, ok := interceptor.GetUserIDFromContext(ctx)
     if !ok {
         return nil, status.Error(codes.Unauthenticated, "user not authenticated")
@@ -193,7 +193,6 @@ func (h *UserHandler) GetProfilePreview(ctx context.Context, req *pb.GetUserRequ
 
     return &pb.GetProfilePreviewResponse{
         Profile: &pb.UserProfilePreview{
-            Id:       output.ID,
             Username: output.Username,
         },
     }, nil

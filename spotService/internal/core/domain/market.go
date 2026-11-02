@@ -2,6 +2,7 @@ package domain
 
 import (
 	"regexp"
+	"test-project/shared/money"
 	"time"
 )
 
@@ -14,11 +15,6 @@ var (
 	RoleGuest = "guest"
 )
 
-type Money struct {
-    Units        int64
-    Nanos        int32
-    CurrencyCode string
-}
 
 type Market struct {
 	MarketID    string
@@ -26,14 +22,14 @@ type Market struct {
 	BaseAsset   string
 	QuoteAsset  string
 	Enabled     bool
-	Price       Money
+	Price       money.Money
 	MinQuantity int64 
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   *time.Time 
 }
 
-func NewMarket(marketID, name, baseAsset, quoteAsset string, price Money, minQuantity int64, createdAt, updatedAt time.Time) (*Market, error){
+func NewMarket(marketID, name, baseAsset, quoteAsset string, price money.Money, minQuantity int64, createdAt, updatedAt time.Time) (*Market, error){
 	if err := ValidateMarketID(marketID); err != nil{
 		return nil, err
 	}
@@ -111,7 +107,7 @@ func ValidateAsset(asset string) error {
     return nil
 }
 
-func ValidatePrice(price Money) error {
+func ValidatePrice(price money.Money) error {
     if price.CurrencyCode == "" {
         return ErrInvalidPrice
     }

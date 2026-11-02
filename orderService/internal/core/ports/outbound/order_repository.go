@@ -8,4 +8,6 @@ import (
 type OrderRepository interface {
 	Save(ctx context.Context, order *domain.Order) error
 	GetByID(ctx context.Context, orderID string) (*domain.Order, error)
+
+	GetByIdempotencyKey(ctx context.Context, key string) (*domain.Order, error)
 }

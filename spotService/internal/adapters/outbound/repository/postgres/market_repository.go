@@ -10,6 +10,7 @@ import (
 	ports "test-project/spotService/internal/core/ports/outbound"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -41,7 +42,17 @@ func (r *MarketRepository) Create(ctx context.Context, market *domain.Market) er
 		market.UpdatedAt,
 		market.DeletedAt,
 	)
-	return err
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" { // 23505 — это код ошибки unique_violation в PostgreSQL
+				return domain.ErrMarketAlreadyExists
+			}
+		}
+		return fmt.Errorf("failed to create market in database: %w", err)
+	}
+
+	return nil
 }
 
 func (r *MarketRepository) GetByID(ctx context.Context, id string) (*domain.Market, error) {
@@ -165,4 +176,19 @@ func (r *MarketRepository) SoftDelete(ctx context.Context, id string) error {
 		return domain.ErrMarketNotFound
 	}
 	return nil
+}
+
+func (r *MarketRepository) IsDeleted(ctx context.Context, id string) (bool, error) {
+	query := `
+		SELECT EXISTS (
+			SELECT 1 FROM markets 
+			WHERE market_id = $1 AND deleted_at IS NOT NULL
+		)
+	`
+	var isDeleted bool
+	err := r.db.QueryRow(ctx, query, id).Scan(&isDeleted)
+	if err != nil {
+		return false, fmt.Errorf("check market deleted status: %w", err)
+	}
+	return isDeleted, nil
 }

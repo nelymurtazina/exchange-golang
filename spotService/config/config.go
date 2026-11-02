@@ -54,13 +54,18 @@ type MigrationConfig struct {
 }
 
 type RedisConfig struct {
-	Host     string
-	Port     int
-	Password string
-	DB       int
+		Host         string
+	Port         int
+	Password     string
+	DB           int
+	PoolSize     int           // максимальное количество соединений
+	MinIdleConns int           // минимальное количество простаивающих соединений
+	DialTimeout  time.Duration // таймаут на установку соединения
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
 }
 
-func LoadConfig() (Config, error) {
+func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found, using environment variables")
 	}
@@ -70,97 +75,97 @@ func LoadConfig() (Config, error) {
 
 	cfg.Database.Host, err = getEnv("DB_HOST")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Database.Port, err = getEnvAsInt("DB_PORT")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Database.User, err = getEnv("DB_USER")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Database.Password, err = getEnv("DB_PASSWORD")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Database.DBName, err = getEnv("DB_NAME")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Database.SSLMode, err = getEnv("DB_SSLMODE")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Database.MaxOpenConns, err = getEnvAsInt("DB_MAX_OPEN_CONNS")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Database.MaxIdleConns, err = getEnvAsInt("DB_MAX_IDLE_CONNS")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	lifetime, err := getEnvAsInt("DB_CONN_MAX_LIFETIME")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Database.ConnMaxLifetime = time.Duration(lifetime) * time.Minute
 
 	cfg.JWT.Secret, err = getEnv("JWT_SECRET")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.JWT.ExpiresHours, err = getEnvAsInt("JWT_EXPIRES_HOURS")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Password.BcryptCost, err = getEnvAsInt("BCRYPT_COST")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Services.OrderServicePort, err = getEnv("ORDER_SERVICE_PORT")
 	if err != nil {
-		return cfg, fmt.Errorf("failed to get ORDER_SERVICE_PORT: %w", err)
+		return &cfg, fmt.Errorf("failed to get ORDER_SERVICE_PORT: %w", err)
 	}
 	cfg.Services.InstrumentServicePort, err = getEnv("SPOT_SERVICE_PORT")
 	if err != nil {
-		return cfg, fmt.Errorf("failed to get SPOT_SERVICE_PORT: %w", err)
+		return &cfg, fmt.Errorf("failed to get SPOT_SERVICE_PORT: %w", err)
 	}
 	cfg.Services.UserServicePort, err = getEnv("USER_SERVICE_PORT")
 	if err != nil {
-		return cfg, fmt.Errorf("failed to get USER_SERVICE_PORT: %w", err)
+		return &cfg, fmt.Errorf("failed to get USER_SERVICE_PORT: %w", err)
 	}
 
 	cfg.Migration.Enabled = getEnvAsBool("MIGRATION_ENABLED", true)
 	cfg.Migration.Path, err = getEnv("SPOT_MIGRATION_PATH")
 	if err != nil {
-		return cfg, fmt.Errorf("SPOT_MIGRATION_PATH: %w", err)
+		return &cfg, fmt.Errorf("SPOT_MIGRATION_PATH: %w", err)
 	}
 
 	cfg.Redis.Host, err = getEnv("REDIS_HOST")
 	if err != nil {
-		return cfg, fmt.Errorf("failed to get REDIS_HOST: %w", err)
+		return &cfg, fmt.Errorf("failed to get REDIS_HOST: %w", err)
 	}
 	cfg.Redis.Port, err = getEnvAsInt("REDIS_PORT")
 	if err != nil {
-		return cfg, fmt.Errorf("failed to get REDIS_PORT: %w", err)
+		return &cfg, fmt.Errorf("failed to get REDIS_PORT: %w", err)
 	}
 	cfg.Redis.Password, _ = getEnv("REDIS_PASSWORD") 
 	cfg.Redis.DB, err = getEnvAsInt("REDIS_DB")
 	if err != nil {
-		return cfg, fmt.Errorf("failed to get REDIS_DB: %w", err)
+		return &cfg, fmt.Errorf("failed to get REDIS_DB: %w", err)
 	}
 
 	if err := cfg.Validate(); err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
-	return cfg, nil
+	return &cfg, nil
 }
 
 func getEnv(key string) (string, error) {

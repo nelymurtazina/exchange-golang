@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"test-project/shared/authorization"
+	"test-project/shared/requestid"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -13,115 +15,69 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type JWTValidator interface {
-    ValidateAccessToken(token string) (claims map[string]any, err error)
-} 
+type JWTValidator = authorization.JWTValidator
 
 type userIDKey struct{}
 type userRoleKey struct{}  
 
 func AuthInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods map[string]struct{}) grpc.UnaryServerInterceptor {
+	skip := make(map[string]struct{}, len(skipMethods))
+	for k := range skipMethods {
+		skip[k] = struct{}{}
+	}
+	
 	return func(
 		ctx context.Context,
 		req interface{},
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
-		if _, ok := skipMethods[info.FullMethod]; ok {
+		if _, ok := skip[info.FullMethod]; ok {
         	return handler(ctx, req)
     	}
 
 		claims, err :=  validateTokenFromContext(ctx, validator)
 		if err != nil {
-			logFields := []zap.Field{
-				zap.String("request_id", extractOrGenerateRequestID(ctx)),
-				zap.String("method", info.FullMethod),
-				zap.Error(err),
-			}
-
-			if errors.Is(err, ErrMetadataMissing) || errors.Is(err, ErrTokenMissing) || errors.Is(err, ErrInvalidHeaderFormat) {
-				logger.Warn("auth failed: client side issue (bad format)", logFields...)
-				return nil, status.Error(codes.Unauthenticated, "missing or invalid authorization header")
-			}
-
-			if errors.Is(err, ErrTokenValidation) {
-				logger.Warn("auth failed: invalid token", logFields...)
-				return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
-			}
-
-			logger.Error("auth failed: internal system error", logFields...)
-			return nil, status.Error(codes.Internal, "internal authentication error")
+			return nil, handleAuthError(err, logger, info.FullMethod, ctx)
 		}
 
-		userID, err := getStringClaim(claims, "user_id")
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "invalid token: %v", err)
-		}
-
-		role, err := getStringClaim(claims, "role")
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "invalid token: %v", err)
-		}
-
-		ctx = context.WithValue(ctx, userIDKey{}, userID)
-		ctx = context.WithValue(ctx, userRoleKey{}, role)
+		ctx = context.WithValue(ctx, userIDKey{}, claims.UserID)
+		ctx = context.WithValue(ctx, userRoleKey{}, claims.Role)
 
 		return handler(ctx, req)
 	}
 }
 
 func AuthStreamInterceptor(validator JWTValidator, logger *zap.Logger, skipMethods map[string]struct{}) grpc.StreamServerInterceptor {
+	skip := make(map[string]struct{}, len(skipMethods))
+	for k := range skipMethods {
+		skip[k] = struct{}{}
+	}
 	return func(
 		srv interface{},
 		ss grpc.ServerStream,
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) error {
-		if _, ok := skipMethods[info.FullMethod]; ok {
+		if _, ok := skip[info.FullMethod]; ok {
        		return handler(srv, ss)
     	}
 
 		claims, err := validateTokenFromContext(ss.Context(), validator)
 		if err != nil {
-			logFields := []zap.Field{
-				zap.String("request_id", extractOrGenerateRequestID(ss.Context())),
-				zap.String("method", info.FullMethod),
-				zap.Error(err),
-			}
-
-			if errors.Is(err, ErrMetadataMissing) || errors.Is(err, ErrTokenMissing) || errors.Is(err, ErrInvalidHeaderFormat) {
-				logger.Warn("auth failed: client side issue (bad format)", logFields...)
-				return status.Error(codes.Unauthenticated, "missing or invalid authorization header")
-			}
-
-			if errors.Is(err, ErrTokenValidation) {
-				logger.Warn("auth failed: invalid token", logFields...)
-				return status.Error(codes.Unauthenticated, "invalid or expired token")
-			}
-
-			logger.Error("auth failed: internal system error", logFields...)
-			return status.Errorf(codes.Internal, "internal authentication error")
+			return handleAuthError(err, logger, info.FullMethod, ss.Context())
 		}
 
-		userID, err := getStringClaim(claims, "user_id")
-		if err != nil {
-			return status.Errorf(codes.Internal, "invalid token: %v", err)
-		}
+		ctx := context.WithValue(ss.Context(), userIDKey{}, claims.UserID)
+		ctx = context.WithValue(ctx, userRoleKey{}, claims.Role)
 
-		role, err := getStringClaim(claims, "role")
-		if err != nil {
-			return status.Errorf(codes.Internal, "invalid token: %v", err)
-		}
-		
-		ctx := context.WithValue(ss.Context(), userIDKey{}, userID)
-		ctx = context.WithValue(ctx, userRoleKey{}, role)
 		wrappedStream := NewWrappedServerStream(ss, ctx)
 
 		return handler(srv, wrappedStream)
 	}
 }
 
-func validateTokenFromContext(ctx context.Context, validator JWTValidator) (map[string]any, error) {
+func validateTokenFromContext(ctx context.Context, validator JWTValidator) (*authorization.JWTClaims, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, ErrMetadataMissing
@@ -145,30 +101,38 @@ func validateTokenFromContext(ctx context.Context, validator JWTValidator) (map[
 	return claims, nil
 }
 
+func handleAuthError(err error, logger *zap.Logger, method string, ctx context.Context) error {
+	logFields := []zap.Field{
+		zap.String("request_id", requestid.ExtractOrGenerate(ctx)),
+		zap.String("method", method),
+		zap.Error(err),
+	}
+
+	switch {
+	case errors.Is(err, ErrMetadataMissing),
+		errors.Is(err, ErrTokenMissing),
+		errors.Is(err, ErrInvalidHeaderFormat):
+		logger.Warn("auth failed: client side issue (bad format)", logFields...)
+		return status.Error(codes.Unauthenticated, "missing or invalid authorization header")
+
+	case errors.Is(err, ErrTokenValidation):
+		logger.Warn("auth failed: invalid token", logFields...)
+		return status.Error(codes.Unauthenticated, "invalid or expired token")
+
+	default:
+		// Сюда почти не должны попадать. Клиенту всё равно отдаём Unauthenticated,
+		// а не Internal (чтобы не светить внутренние детали).
+		logger.Error("auth failed: unexpected error", logFields...)
+		return status.Error(codes.Unauthenticated, "authentication failed")
+	}
+}
+
 func GetUserIDFromContext(ctx context.Context) (string, bool) {
 	userID, ok := ctx.Value(userIDKey{}).(string)
 	return userID, ok
 }
 
 func GetUserRoleFromContext(ctx context.Context) (string, bool) {
-    role, ok := ctx.Value(userRoleKey{}).(string)
-    return role, ok
-}
-
-
-func getStringClaim(claims map[string]any, key string) (string, error){
-	val, exists := claims[key]
-	if !exists{
-		return "", fmt.Errorf("claim '%s' is missing", key)
-	}
-
-	strVal, ok := val.(string)
-	if !ok{
-		return "", fmt.Errorf("claim '%s' has invalid type: expected string, got %T", key, val)
-	}
-
-	if strVal == ""{
-		return "", fmt.Errorf("claim '%s' is empty", key)
-	}
-	return strVal, nil
+	role, ok := ctx.Value(userRoleKey{}).(string)
+	return role, ok
 }

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"regexp"
+	"test-project/shared/money"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,26 +28,20 @@ const (
 
 var ValidUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
 
-
-type Money struct {
-    Units        int64
-    Nanos        int32
-    CurrencyCode string
-}
-
 type Order struct {
-	OrderID   string
-	UserID    string
-	MarketID  string
-	Type      OrderType
-	Price 	  Money  
-	Quantity  int64
-	Status    OrderStatus
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	OrderID        string
+	UserID         string
+	MarketID       string
+	Type           OrderType
+	Price          money.Money
+	Quantity       int64
+	Status         OrderStatus
+	IdempotencyKey string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
-func NewOrder(orderID, userID, marketID string, orderType OrderType, price Money, quantity int64, status OrderStatus, createdAt, updatedAt time.Time) (*Order, error) {
+func NewOrder(orderID, userID, marketID string, orderType OrderType, price money.Money, quantity int64, status OrderStatus,  idempotencyKey string, createdAt, updatedAt time.Time) (*Order, error) {
 	if err := ValidateID(userID, ErrInvalidUserID); err != nil {
 		return nil, err
 	}
@@ -70,15 +65,16 @@ func NewOrder(orderID, userID, marketID string, orderType OrderType, price Money
 	}
 
 	return &Order{
-		OrderID:   orderID,
-		UserID:    userID,
-		MarketID:  marketID,
-		Type:      orderType,
-		Price:     price,
-		Quantity:  quantity,
-		Status:    status,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
+		OrderID:        orderID,
+		UserID:         userID,
+		MarketID:       marketID,
+		Type:           orderType,
+		Price:          price,
+		Quantity:       quantity,
+		Status:         status,
+		IdempotencyKey: idempotencyKey,
+		CreatedAt:      createdAt,
+		UpdatedAt:      updatedAt,
 	}, nil
 }
 
@@ -115,7 +111,7 @@ func ValidateStatus(status OrderStatus) error {
 	}
 }
 
-func ValidatePrice(price Money) error {
+func ValidatePrice(price money.Money) error {
     if price.CurrencyCode == "" {
         return ErrInvalidPrice
     }
@@ -134,13 +130,11 @@ func ValidateQuantity(quantity int64) error {
 	}
 	return nil
 }
-// проверяет, что market_id имеет формат "BTC-USD"
 func ValidateMarketID(marketID string) error {
 	if marketID == "" {
 		return ErrInvalidMarketID
 	}
-	matched, _ := regexp.MatchString(`^[A-Z]+-[A-Z]+$`, marketID)
-	if !matched {
+	if !ValidUsernameRegex.MatchString(marketID) {
 		return ErrInvalidMarketID
 	}
 	return nil

@@ -439,11 +439,11 @@ const file_spot_spot_instrument_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12&\n" +
 	"\x05price\x18\b \x01(\v2\x10.common.v1.MoneyR\x05price\x125\n" +
-	"\fmin_quantity\x18\t \x01(\v2\x12.common.v1.DecimalR\vminQuantity\"[\n" +
+	"\fmin_quantity\x18\t \x01(\v2\x12.common.v1.DecimalR\vminQuantity\"e\n" +
 	"\x12ListMarketsRequest\x12&\n" +
-	"\tpage_size\x18\x01 \x01(\x05B\t\xfaB\x06\x1a\x04\x18d(\x01R\bpageSize\x12\x1d\n" +
+	"\tpage_size\x18\x01 \x01(\x05B\t\xfaB\x06\x1a\x04\x18d(\x01R\bpageSize\x12'\n" +
 	"\n" +
-	"page_token\x18\x02 \x01(\tR\tpageToken\"h\n" +
+	"page_token\x18\x02 \x01(\tB\b\xfaB\x05r\x03\x18\x80\x02R\tpageToken\"h\n" +
 	"\x13ListMarketsResponse\x12)\n" +
 	"\amarkets\x18\x01 \x03(\v2\x0f.spot.v1.MarketR\amarkets\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"G\n" +

@@ -93,10 +93,8 @@ func (s *MarketService) DisableMarket(ctx context.Context, input portsInbound.Di
 	}
 
 	market.Enabled = false
-	if err := s.repo.Update(ctx, market); err != nil {
-		return nil, err
-	}
 	_ = s.cache.Delete(ctx, market.MarketID)
+	_ = s.cache.DeleteMarketsList(ctx)
 
 	return &portsInbound.GetMarketOutput{Market: market}, nil
 }
@@ -113,18 +111,85 @@ func (s *MarketService) ListMarkets(ctx context.Context, input portsInbound.List
 		pageSize = maxPageSize
 	}
 
-	markets, err := s.repo.GetAllActiveWithCursor(ctx, int(pageSize), input.PageToken)
+	cachedMarkets, err := s.cache.GetMarketsList(ctx)
+	if err == nil && cachedMarkets != nil {
+		var paginatedMarkets []*domain.Market
+		start := 0
+		end := len(cachedMarkets)
+
+		if input.PageToken != "" {
+			for i, m := range cachedMarkets {
+				if m.MarketID == input.PageToken {
+					start = i + 1
+					break
+				}
+			}
+		}
+
+		if start >= len(cachedMarkets) {
+			paginatedMarkets = []*domain.Market{}
+		} else {
+			end = start + int(pageSize)
+			if end > len(cachedMarkets) {
+				end = len(cachedMarkets)
+			}
+			paginatedMarkets = cachedMarkets[start:end]
+		}
+
+		var nextToken string
+		if len(paginatedMarkets) == int(pageSize) && end < len(cachedMarkets) {
+			nextToken = paginatedMarkets[len(paginatedMarkets)-1].MarketID
+		}
+
+		return &portsInbound.ListMarketsOutput{
+			Markets:       paginatedMarkets,
+			NextPageToken: nextToken,
+		}, nil
+	}
+
+	markets, err := s.repo.GetAllActiveWithCursor(ctx, int(pageSize)+1, input.PageToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list markets: %w", err)
 	}
 
 	var nextToken string
-	if len(markets) == int(pageSize) {
-		nextToken = markets[len(markets)-1].MarketID
+	if len(markets) > int(pageSize) {
+		nextToken = markets[pageSize-1].MarketID
+		markets = markets[:pageSize]
 	}
 
 	return &portsInbound.ListMarketsOutput{
 		Markets:       markets,
 		NextPageToken: nextToken,
 	}, nil
+}
+
+
+func (s *MarketService) DeleteMarket(ctx context.Context, input portsInbound.DeleteMarketInput) error {
+	if err := requireAdmin(input.UserRole); err != nil {
+		return err
+	}
+	if err := denyGuest(input.UserRole); err != nil {
+		return err
+	}
+	if err := domain.ValidateMarketID(input.MarketID); err != nil {
+		return err
+	}
+
+	isDeleted, err := s.repo.IsDeleted(ctx, input.MarketID)
+	if err != nil {
+		return err
+	}
+	if isDeleted {
+		return domain.ErrMarketNotFound 
+	}
+	
+	if err := s.repo.SoftDelete(ctx, input.MarketID); err != nil {
+		return fmt.Errorf("failed to soft delete market: %w", err)
+	}
+
+	_ = s.cache.Delete(ctx, input.MarketID)
+	_ = s.cache.DeleteMarketsList(ctx)
+
+	return nil
 }

@@ -31,10 +31,10 @@ type DatabaseConfig struct {
 	Password        string
 	DBName          string
 	SSLMode         string
-	MaxOpenConns    int `env:"DB_MAX_OPEN_CONNS" envDefault:"25"`
-	MaxIdleConns    int `env:"DB_MAX_IDLE_CONNS" envDefault:"5"`
-	ConnMaxLifetime 	 time.Duration `env:"DB_CONN_MAX_LIFETIME" envDefault:"5"`
-	ConnMaxIdleTime      time.Duration `env:"DB_CONN_MAX_IDLE_TIME" envDefault:"15"`
+	MaxOpenConns    int `env:"DB_MAX_OPEN_CONNS" `
+	MaxIdleConns    int `env:"DB_MAX_IDLE_CONNS"`
+	ConnMaxLifetime 	 time.Duration `env:"DB_CONN_MAX_LIFETIME"`
+	ConnMaxIdleTime      time.Duration `env:"DB_CONN_MAX_IDLE_TIME"`
 }
 
 
@@ -57,13 +57,18 @@ type MigrationConfig struct {
 } //поменять 
 
 type RedisConfig struct {
-	Host     string
-	Port     int
-	Password string
-	DB       int
+	Host         string
+	Port         int
+	Password     string
+	DB           int
+	PoolSize     int           // максимальное количество соединений
+	MinIdleConns int           // минимальное количество простаивающих соединений
+	DialTimeout  time.Duration // таймаут на установку соединения
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
 }
 
-func LoadConfig() (Config, error) {
+func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found, using environment variables")
 	}
@@ -74,140 +79,133 @@ func LoadConfig() (Config, error) {
 	// Database
 	cfg.Database.Host, err = getEnv("DB_HOST")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Database.Port, err = getEnvAsInt("DB_PORT")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Database.User, err = getEnv("DB_USER")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Database.Password, err = getEnv("DB_PASSWORD")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Database.DBName, err = getEnv("DB_NAME")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Database.SSLMode, err = getEnv("DB_SSLMODE")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Database.MaxOpenConns, err = getEnvAsInt("DB_MAX_OPEN_CONNS")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Database.MaxIdleConns, err = getEnvAsInt("DB_MAX_IDLE_CONNS")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	lifetime, err := getEnvAsInt("DB_CONN_MAX_LIFETIME")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Database.ConnMaxLifetime = time.Duration(lifetime) * time.Minute
 
 	idleTime, err := getEnvAsInt("DB_CONN_MAX_IDLE_TIME")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Database.ConnMaxIdleTime = time.Duration(idleTime) * time.Minute
 
 	cfg.Redis.Host, err = getEnv("REDIS_HOST")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Redis.Port, err = getEnvAsInt("REDIS_PORT")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 	cfg.Redis.Password = os.Getenv("REDIS_PASSWORD")
 	cfg.Redis.DB, err = getEnvAsInt("REDIS_DB")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	// JWT
 	cfg.JWT.Secret, err = getEnv("JWT_SECRET")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.JWT.ExpiresHours, err = getEnvAsInt("JWT_EXPIRES_HOURS")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Password.BcryptCost, err = getEnvAsInt("BCRYPT_COST")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	// Services
 	cfg.Services.OrderServicePort, err = getEnv("ORDER_SERVICE_PORT")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Services.InstrumentServicePort, err = getEnv("SPOT_SERVICE_PORT")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	cfg.Services.UserServicePort, err = getEnv("USER_SERVICE_PORT")
 	if err != nil {
-		return cfg, err
-	}
-	cfg.JWT.Secret = os.Getenv("JWT_SECRET")
-	if cfg.JWT.Secret == "" {
-		return cfg, err
+		return &cfg, err
 	}
 	accessTTLStr, err := getEnv("JWT_ACCESS_TTL")
-	if err != nil { return cfg, err }
+	if err != nil { return &cfg, err }
 	cfg.JWT.AccessTTL, err = time.ParseDuration(accessTTLStr)
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	refreshTTLSt, err:= getEnv("JWT_REFRESH_TTL")
-	if err != nil { return cfg, err }
+	if err != nil { return &cfg, err }
 	cfg.JWT.RefreshTTL, err = time.ParseDuration(refreshTTLSt)
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	// Migration
 	cfg.Migration.Enabled = getEnvAsBool("MIGRATION_ENABLED", true)
 	cfg.Migration.Path, err = getEnv("USER_MIGRATION_PATH")
 	if err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
 	if err := cfg.Validate(); err != nil {
-		return cfg, err
+		return &cfg, err
 	}
 
-	return cfg, nil
+	return &cfg, nil
 }
 
 func getEnv(key string) (string, error) {
 	value, exists := os.LookupEnv(key)
 	if !exists || value == "" {
 		return "", fmt.Errorf("%s is required in .env", key)
-	}
-	if value := os.Getenv(key); value != "" {
-		return value, nil
 	}
 	return value, nil
 }

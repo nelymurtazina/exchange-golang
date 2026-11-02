@@ -3,6 +3,7 @@ package inbound
 import (
 	"context"
 	"test-project/orderService/internal/core/domain"
+	"test-project/shared/money"
 )
 
 
@@ -10,9 +11,9 @@ type CreateOrderInput struct {
 	UserID         string 
 	MarketID       string
 	Type           domain.OrderType
-	Price          domain.Money
+	Price          money.Money
 	Quantity       int64 
-	IdempotencyKey string
+	IdempotencyKey string 
 }
 
 type CreateOrderOutput struct{

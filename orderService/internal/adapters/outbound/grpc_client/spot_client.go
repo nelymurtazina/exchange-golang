@@ -7,6 +7,7 @@ import (
 
 	spotv1 "test-project/api/gen/spot"
 	"test-project/orderService/internal/core/ports/outbound"
+	"test-project/shared/money"
 
 	"google.golang.org/grpc"
 )
@@ -37,9 +38,23 @@ func (c *SpotClient) GetMarket(ctx context.Context, marketID string) (*outbound.
 		minQuantity = resp.Market.MinQuantity.Units
 	}
 
+	var priceMoney money.Money
+	if resp.Market.Price != nil && resp.Market.Price.Amount != nil {
+		priceMoney = money.Money{
+			Units:        resp.Market.Price.Amount.Units,
+			Nanos:        resp.Market.Price.Amount.Nanos,
+			CurrencyCode: resp.Market.Price.CurrencyCode,
+		}
+	}
 	return &outbound.MarketInfo{
 		MarketID:    resp.Market.MarketId,
+		Name:        resp.Market.Name,
+		BaseAsset:   resp.Market.BaseAsset,
+		QuoteAsset:  resp.Market.QuoteAsset,
 		Enabled:     resp.Market.Enabled,
+		Price:       priceMoney,
 		MinQuantity: minQuantity,
+		CreatedAt:   resp.Market.CreatedAt.AsTime(),
+		UpdatedAt:   resp.Market.UpdatedAt.AsTime(),
 	}, nil
 }

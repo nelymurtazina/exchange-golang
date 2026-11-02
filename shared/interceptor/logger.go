@@ -2,6 +2,7 @@ package interceptor
 
 import (
 	"context"
+	"test-project/shared/requestid"
 	"time"
 
 	"go.uber.org/zap"
@@ -17,7 +18,7 @@ func LoggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
-		requestID := extractOrGenerateRequestID(ctx)
+		requestID := requestid.ExtractOrGenerate(ctx)
 		startTime := time.Now()
 		
 		logger.Debug("gRPC request started",
@@ -42,7 +43,7 @@ func LoggerStreamInterceptor(logger *zap.Logger) grpc.StreamServerInterceptor {
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) error {
-		requestID := extractOrGenerateRequestID(ss.Context())
+		requestID := requestid.ExtractOrGenerate(ss.Context())
 		startTime := time.Now()
 		ctx := ss.Context()
 
@@ -63,7 +64,7 @@ func LoggerStreamInterceptor(logger *zap.Logger) grpc.StreamServerInterceptor {
 
 
 func logGRPCRequest(logger *zap.Logger, ctx context.Context, method string, duration time.Duration, err error) {
-	requestID := extractOrGenerateRequestID(ctx)
+	requestID := requestid.ExtractOrGenerate(ctx)
 	code := status.Code(err)
 
 	logFields := []zap.Field{
